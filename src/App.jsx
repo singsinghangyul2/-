@@ -127,32 +127,31 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
-  // 사진 업로드 오류 해결 (안정성 강화)
-  const handleImageUpload = async (e) => {
+  // 사진 업로드 오류 수정 (Base64 변환 방식으로 외부 API 오류 원천 해결)
+  const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setUploadingImage(true);
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      const response = await fetch('https://api.imgbb.com/1/upload?key=d34465b6f3830c29a8264560d2cf3a61', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (data && data.success) {
-        setDietPhotoUrl(data.data.url);
-        alert('🌴 인증 사진이 업로드되었습니다!');
-      } else {
-        alert('업로드 실패: ' + (data?.error?.message || '알 수 없는 오류 발생'));
-      }
-    } catch (err) {
-      alert('업로드 중 오류 발생: ' + err.message);
-    } finally {
-      setUploadingImage(false);
+    if (file.size > 2 * 1024 * 1024) {
+      alert('이미지 용량이 너무 큽니다. 2MB 이하의 사진을 선택해주세요!');
+      return;
     }
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    
+    reader.onloadend = () => {
+      setDietPhotoUrl(reader.result);
+      setUploadingImage(false);
+      alert('🌴 인증 사진이 성공적으로 첨부되었습니다!');
+    };
+
+    reader.onerror = () => {
+      setUploadingImage(false);
+      alert('사진을 불러오는 중 오류가 발생했습니다.');
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const handlePoke = async () => {
@@ -353,7 +352,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 캘린더 세로 길이 대폭 압축 (minHeight 줄임) */}
+            {/* 캘린더 영역 */}
             <div style={{ background: '#FFFFFF', padding: '10px 8px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E0F2F1' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: '900', fontSize: '10px', color: '#A0AEC0', marginBottom: '6px' }}>
                 <span style={{ color: '#E53E3E' }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: '#3182CE' }}>토</span>
@@ -410,7 +409,7 @@ export default function App() {
               <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '14px', border: '1px solid #B2DFDB', fontSize: '12px', background: '#FFFFFF', fontWeight: '900', color: '#008B8B', boxSizing: 'border-box', outline: 'none' }} />
             </div>
 
-            {/* 식단 인증과 운동 기록을 가로(Flex)로 배치하여 한 화면에 노출 */}
+            {/* 식단 인증과 운동 기록을 가로(Flex)로 배치 */}
             <div style={{ display: 'flex', gap: '10px' }}>
               
               {/* 식단 인증 카드 */}
@@ -451,7 +450,7 @@ export default function App() {
                 
                 <div>
                   <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', fontSize: '9px', padding: '4px' }} />
-                  {uploadingImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0 0 0' }}>전송중...</p>}
+                  {uploadingImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0 0 0' }}>변환중...</p>}
                   {dietPhotoUrl && (
                     <div style={{ position: 'relative', display: 'inline-block', marginTop: '4px' }}>
                       <img src={dietPhotoUrl} alt="업로드" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #008B8B' }} />
@@ -471,7 +470,7 @@ export default function App() {
                 <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="시간 (분)" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '45px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                <div style={{ height: '21px' }}></div> {/* 높이 맞춤 빈 공간 */}
+                <div style={{ height: '21px' }}></div>
 
                 <button type="button" onClick={handleSaveWorkout} style={{ width: '100%', padding: '10px', background: '#32CD32', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>운동 저장</button>
               </div>
