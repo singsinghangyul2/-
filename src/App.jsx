@@ -17,38 +17,14 @@ import {
   increment 
 } from 'firebase/firestore';
 
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  onSnapshot, 
-  updateDoc, 
-  increment 
-} from 'firebase/firestore';
-
-// 환경 변수에서 파이어베이스 키 불러오기 (API 키 깨짐 방지)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyDyrfuOttJHRI-8BgQvpIlnJtEsbIAW7jo",
+  authDomain: "couple-diet-1012.firebaseapp.com",
+  projectId: "couple-diet-1012",
+  storageBucket: "couple-diet-1012.firebasestorage.app",
+  messagingSenderId: "487330133450",
+  appId: "1:487330133450:web:e03a5c60538ebcb9964b33"
 };
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -212,7 +188,6 @@ export default function App() {
       <main style={{ padding: '20px' }}>
         {activeTab === 'home' && (
           <div>
-            {/* 💡 이 부분에서 이메일 대신 상대방 이름(partnerName)이 뜨도록 수정했습니다! */}
             <h2>🏠 {partnerName}의 오늘의 미션</h2>
             <div style={{ background: '#fff0f0', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
               <p style={{ margin: 0, fontWeight: 'bold', color: '#d9534f' }}>
