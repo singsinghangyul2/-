@@ -1799,8 +1799,8 @@ export default function App() {
               )}
             </div>
           </div>
-        )
-      )}
+        
+      }
 
       {/* ================== 사진 확대 모달 ================== */}
       {modalImageSrc && (
