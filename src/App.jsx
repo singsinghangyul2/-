@@ -18,12 +18,12 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSy...", 
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
+  apiKey: "AIzaSyDyrfuOttJHRI-8BgQvpIlnJtEsbIAW7jo",
+  authDomain: "couple-diet-1012.firebaseapp.com",
+  projectId: "couple-diet-1012",
+  storageBucket: "couple-diet-1012.firebasestorage.app",
+  messagingSenderId: "487330133450",
+  appId: "1:487330133450:web:e03a5c60538ebcb9964b33"
 };
 
 const app = initializeApp(firebaseConfig);
