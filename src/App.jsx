@@ -197,8 +197,25 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'diet' && <h2>🥗 식단 관리</h2>}
-        {activeTab === 'workout' && <h2>💪 운동 루틴</h2>}
+        {activeTab === 'diet' && (
+          <div>
+            <h2>🥗 식단 관리</h2>
+            <p>오늘 먹은 건강한 식단을 기록해보세요!</p>
+            <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
+              <p style={{ margin: 0, color: '#555' }}>식단 기록 기능이 여기에 들어갑니다 📝</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'workout' && (
+          <div>
+            <h2>💪 운동 루틴</h2>
+            <p>푸켓을 위한 오늘의 운동을 체크해볼까요?</p>
+            <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
+              <p style={{ margin: 0, color: '#555' }}>운동 루틴 기능이 여기에 들어갑니다 🔥</p>
+            </div>
+          </div>
+        )}
         
         {activeTab === 'poke' && (
           <div>
