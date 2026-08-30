@@ -16,7 +16,6 @@ import {
   updateDoc, 
   increment 
 } from 'firebase/firestore';
-
 const firebaseConfig = {
   apiKey: "AIzaSyDyrfuOttJHRI-8BgQvpIlnJtEsbIAW7jo",
   authDomain: "couple-diet-1012.firebaseapp.com",
