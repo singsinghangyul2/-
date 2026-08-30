@@ -51,7 +51,7 @@ export default function App() {
   const [penalties, setPenalties] = useState([]);
 
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
-  const [selectedRecordForDetail, setSelectedRecordForDetail] = useState(null);
+  const [selectedDateForDetail, setSelectedDateForDetail] = useState(null); // 날짜 기준 상세 모달로 변경
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -129,7 +129,6 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
-  // 대용량 사진 압축 및 다중 처리 공통 함수
   const processImageFiles = (files, setUploading, setUrlsState, currentUrls) => {
     if (!files || files.length === 0) return;
     setUploading(true);
@@ -139,7 +138,6 @@ export default function App() {
     const results = [...currentUrls];
 
     newFiles.forEach((file) => {
-      // 용량 제한 10MB 완화
       if (file.size > 10 * 1024 * 1024) {
         alert(`'${file.name}' 사진 용량이 10MB를 초과하여 제외되었습니다.`);
         processedCount++;
@@ -174,7 +172,6 @@ export default function App() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // 자동 압축 (품질 0.8)
           const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
           results.push(dataUrl);
 
@@ -242,7 +239,6 @@ export default function App() {
   const handleSaveWorkout = async (e) => {
     e.preventDefault();
     try {
-      // 식단/운동 통합 기록 형태로 저장 (캘린더 연동 용이)
       await addDoc(collection(db, 'dietCheckins'), {
         coupleID: 'couple_01',
         ownerEmail: currentUser.email,
@@ -271,7 +267,7 @@ export default function App() {
     try {
       await deleteDoc(firestoreDoc(db, 'dietCheckins', recordId));
       alert('기록이 삭제되었습니다.');
-      setSelectedRecordForDetail(null);
+      setSelectedDateForDetail(null);
       fetchRecords();
     } catch (err) {
       alert('삭제 실패: ' + err.message);
@@ -338,6 +334,10 @@ export default function App() {
   const month = currentMonthDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
+
+  // 선택한 날짜의 내 기록, 상대 기록 추출
+  const myRecordForSelectedDate = myRecords.find(r => r.targetDate === selectedDateForDetail);
+  const partnerRecordForSelectedDate = partnerRecords.find(r => r.targetDate === selectedDateForDetail);
 
   return (
     <div style={{ maxWidth: '420px', margin: '0 auto', paddingBottom: '100px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#F4F9F9', minHeight: '100vh', position: 'relative', color: '#2D3748', boxShadow: '0 0 30px rgba(0,0,0,0.08)' }}>
@@ -423,23 +423,34 @@ export default function App() {
 
                   const myRec = myRecords.find(r => r.targetDate === dateStr);
                   const partnerRec = partnerRecords.find(r => r.targetDate === dateStr);
+                  const hasAnyRecord = myRec || partnerRec;
 
                   return (
-                    <div key={dateStr} style={{ minHeight: '52px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '8px', padding: '2px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
+                    <div 
+                      key={dateStr} 
+                      onClick={() => setSelectedDateForDetail(dateStr)}
+                      style={{ 
+                        minHeight: '52px', 
+                        background: hasAnyRecord ? '#FFFFFF' : '#F8FBFB', 
+                        border: '1px solid #E0F2F1', 
+                        borderRadius: '8px', 
+                        padding: '2px', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        justifyContent: 'flex-start', 
+                        boxSizing: 'border-box', 
+                        overflow: 'hidden',
+                        cursor: 'pointer' 
+                      }}
+                    >
                       <div style={{ fontSize: '9px', fontWeight: '900', color: '#008B8B', marginBottom: '1px', textAlign: 'center' }}>{dayNum}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '8px', fontWeight: '900' }}>
                         
-                        <div 
-                          onClick={() => myRec && setSelectedRecordForDetail({ ...myRec, writer: '내 기록' })}
-                          style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: myRec ? 'pointer' : 'default' }}
-                        >
+                        <div style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           나:{myRec ? (myRec.status === '성공' ? '✅' : myRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
 
-                        <div 
-                          onClick={() => partnerRec && setSelectedRecordForDetail({ ...partnerRec, writer: `${partnerName} 기록` })}
-                          style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: partnerRec ? 'pointer' : 'default' }}
-                        >
+                        <div style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {partnerName}:{partnerRec ? (partnerRec.status === '성공' ? '✅' : partnerRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
 
@@ -500,20 +511,20 @@ export default function App() {
 
                 <textarea placeholder="식단 메모" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #B2DFDB', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                {/* 가시성이 뛰어난 고도화된 다중 사진 업로드 버튼 */}
+                {/* 실시간 미리보기 기능이 포함된 식단 사진 업로드 */}
                 <div>
                   <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E0F2F1', color: '#00695C', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #008B8B', boxSizing: 'border-box' }}>
                     📸 식단 사진 추가 ({dietPhotoUrls.length}장)
                     <input type="file" accept="image/*" multiple onChange={handleDietImagesUpload} style={{ display: 'none' }} />
                   </label>
-                  {uploadingDietImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0', textAlign: 'center' }}>압축 및 첨부 중...</p>}
+                  {uploadingDietImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0', textAlign: 'center' }}>압축 및 미리보기 생성 중...</p>}
                   
                   {dietPhotoUrls.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {dietPhotoUrls.map((url, index) => (
                         <div key={index} style={{ position: 'relative' }}>
-                          <img src={url} alt="식단" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #008B8B' }} />
-                          <button type="button" onClick={() => setDietPhotoUrls(dietPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                          <img src={url} alt="식단미리보기" style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #008B8B' }} />
+                          <button type="button" onClick={() => setDietPhotoUrls(dietPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -523,7 +534,7 @@ export default function App() {
                 <button type="button" onClick={handleSaveDiet} style={{ width: '100%', padding: '10px', background: '#008B8B', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>식단 저장</button>
               </div>
 
-              {/* 운동 인증 카드 (사진 업로드 포함) */}
+              {/* 운동 인증 카드 */}
               <div style={{ flex: 1, background: '#FFFFFF', padding: '14px', borderRadius: '20px', border: '1px solid #E0F2F1', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <h4 style={{ margin: 0, color: '#32CD32', fontWeight: '900', fontSize: '11px' }}>💪 운동 인증</h4>
                 
@@ -531,20 +542,20 @@ export default function App() {
                 <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="시간 (분)" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                {/* 운동 인증 다중 사진 업로드 */}
+                {/* 실시간 미리보기 기능이 포함된 운동 사진 업로드 */}
                 <div>
                   <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E8F5E9', color: '#2E7D32', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #32CD32', boxSizing: 'border-box' }}>
                     📸 운동 인증샷 ({workoutPhotoUrls.length}장)
                     <input type="file" accept="image/*" multiple onChange={handleWorkoutImagesUpload} style={{ display: 'none' }} />
                   </label>
-                  {uploadingWorkoutImage && <p style={{ fontSize: '9px', color: '#32CD32', margin: '2px 0', textAlign: 'center' }}>압축 및 첨부 중...</p>}
+                  {uploadingWorkoutImage && <p style={{ fontSize: '9px', color: '#32CD32', margin: '2px 0', textAlign: 'center' }}>압축 및 미리보기 생성 중...</p>}
                   
                   {workoutPhotoUrls.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {workoutPhotoUrls.map((url, index) => (
                         <div key={index} style={{ position: 'relative' }}>
-                          <img src={url} alt="운동" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #32CD32' }} />
-                          <button type="button" onClick={() => setWorkoutPhotoUrls(workoutPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                          <img src={url} alt="운동미리보기" style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #32CD32' }} />
+                          <button type="button" onClick={() => setWorkoutPhotoUrls(workoutPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -572,53 +583,103 @@ export default function App() {
         )}
       </main>
 
-      {/* 날짜 기록 상세보기 및 삭제 모달 */}
-      {selectedRecordForDetail && (
+      {/* 캘린더 날짜별 상세 모달 (내 기록 + 상대방 기록 및 사진 모두 확인 가능) */}
+      {selectedDateForDetail && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '340px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '360px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
+            
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#008B8B' }}>{selectedRecordForDetail.writer} ({selectedRecordForDetail.targetDate})</h3>
-              <button onClick={() => setSelectedRecordForDetail(null)} style={{ background: 'transparent', border: 'none', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: '#A0AEC0' }}>✕</button>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '900', color: '#008B8B' }}>📅 {selectedDateForDetail} 인증 현황</h3>
+              <button onClick={() => setSelectedDateForDetail(null)} style={{ background: 'transparent', border: 'none', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: '#A0AEC0' }}>✕</button>
             </div>
             
-            <div style={{ background: '#F8FBFB', padding: '14px', borderRadius: '16px', border: '1px solid #E0F2F1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#2D3748' }}>상태: <span style={{ color: selectedRecordForDetail.status === '성공' ? '#008B8B' : selectedRecordForDetail.status === '운동완료' ? '#32CD32' : selectedRecordForDetail.status === '야자수 데이' ? '#D97706' : '#E53E3E' }}>{selectedRecordForDetail.status}</span></p>
-              {selectedRecordForDetail.workoutType && <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#32CD32' }}>운동: {selectedRecordForDetail.workoutType} ({selectedRecordForDetail.durationMinutes}분)</p>}
-              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568', fontWeight: '500' }}>메모: {selectedRecordForDetail.memo || '작성된 메모가 없습니다.'}</p>
+            {/* 내 기록 섹션 */}
+            <div style={{ background: '#F8FBFB', padding: '14px', borderRadius: '16px', border: '1px solid #E0F2F1', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', fontWeight: '900', color: '#008B8B' }}>🧳 내 기록 ({myName})</span>
+                {myRecordForSelectedDate && (
+                  <button onClick={() => handleDeleteRecord(myRecordForSelectedDate.id)} style={{ background: '#FFF5F5', color: '#E53E3E', border: '1px solid #FED7D7', borderRadius: '6px', fontSize: '9px', fontWeight: 'bold', padding: '3px 6px', cursor: 'pointer' }}>삭제</button>
+                )}
+              </div>
+
+              {myRecordForSelectedDate ? (
+                <>
+                  <p style={{ margin: 0, fontSize: '11px', fontWeight: 'bold', color: '#2D3748' }}>
+                    상태/종류: <span style={{ color: '#008B8B' }}>{myRecordForSelectedDate.status}</span>
+                    {myRecordForSelectedDate.workoutType && ` (${myRecordForSelectedDate.workoutType}, ${myRecordForSelectedDate.durationMinutes}분)`}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#4A5568' }}>메모: {myRecordForSelectedDate.memo || '메모 없음'}</p>
+                  
+                  {/* 내 식단 사진 */}
+                  {myRecordForSelectedDate.photoUrls && myRecordForSelectedDate.photoUrls.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 2px 0' }}>🥗 식단 사진</p>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {myRecordForSelectedDate.photoUrls.map((url, i) => (
+                          <img key={i} src={url} alt="내식단" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E0F2F1' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 내 운동 사진 */}
+                  {myRecordForSelectedDate.workoutPhotoUrls && myRecordForSelectedDate.workoutPhotoUrls.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '4px 0 2px 0' }}>💪 운동 사진</p>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {myRecordForSelectedDate.workoutPhotoUrls.map((url, i) => (
+                          <img key={i} src={url} alt="내운동" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #E0F2F1' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: '11px', color: '#A0AEC0', fontStyle: 'italic' }}>작성된 기록이 없습니다.</p>
+              )}
             </div>
 
-            {/* 식단 인증 사진들 */}
-            {selectedRecordForDetail.photoUrls && selectedRecordForDetail.photoUrls.length > 0 && (
-              <div>
-                <p style={{ fontSize: '11px', fontWeight: '900', color: '#FF7F50', marginBottom: '6px' }}>🥗 식단 인증 사진</p>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {selectedRecordForDetail.photoUrls.map((url, i) => (
-                    <img key={i} src={url} alt="식단인증샷" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1' }} />
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* 상대방 기록 섹션 */}
+            <div style={{ background: '#FFFDF9', padding: '14px', borderRadius: '16px', border: '1px solid #FFE082', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '900', color: '#D97706' }}>💛 {partnerName}님의 기록</span>
 
-            {/* 운동 인증 사진들 */}
-            {selectedRecordForDetail.workoutPhotoUrls && selectedRecordForDetail.workoutPhotoUrls.length > 0 && (
-              <div>
-                <p style={{ fontSize: '11px', fontWeight: '900', color: '#32CD32', marginBottom: '6px' }}>💪 운동 인증 사진</p>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {selectedRecordForDetail.workoutPhotoUrls.map((url, i) => (
-                    <img key={i} src={url} alt="운동인증샷" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1' }} />
-                  ))}
-                </div>
-              </div>
-            )}
+              {partnerRecordForSelectedDate ? (
+                <>
+                  <p style={{ margin: 0, fontSize: '11px', fontWeight: 'bold', color: '#2D3748' }}>
+                    상태/종류: <span style={{ color: '#D97706' }}>{partnerRecordForSelectedDate.status}</span>
+                    {partnerRecordForSelectedDate.workoutType && ` (${partnerRecordForSelectedDate.workoutType}, ${partnerRecordForSelectedDate.durationMinutes}분)`}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#4A5568' }}>메모: {partnerRecordForSelectedDate.memo || '메모 없음'}</p>
+                  
+                  {/* 상대방 식단 사진 */}
+                  {partnerRecordForSelectedDate.photoUrls && partnerRecordForSelectedDate.photoUrls.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 2px 0' }}>🥗 식단 사진</p>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {partnerRecordForSelectedDate.photoUrls.map((url, i) => (
+                          <img key={i} src={url} alt="상대식단" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #FFE082' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-            {selectedRecordForDetail.ownerEmail === currentUser.email && (
-              <button 
-                onClick={() => handleDeleteRecord(selectedRecordForDetail.id)} 
-                style={{ width: '100%', padding: '12px', background: '#FFF5F5', color: '#E53E3E', border: '1px solid #FED7D7', borderRadius: '14px', fontWeight: '900', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}
-              >
-                이 기록 삭제하기 🗑️
-              </button>
-            )}
+                  {/* 상대방 운동 사진 */}
+                  {partnerRecordForSelectedDate.workoutPhotoUrls && partnerRecordForSelectedDate.workoutPhotoUrls.length > 0 && (
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '4px 0 2px 0' }}>💪 운동 사진</p>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {partnerRecordForSelectedDate.workoutPhotoUrls.map((url, i) => (
+                          <img key={i} src={url} alt="상대운동" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #FFE082' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: '11px', color: '#A0AEC0', fontStyle: 'italic' }}>작성된 기록이 없습니다.</p>
+              )}
+            </div>
+
           </div>
         </div>
       )}
