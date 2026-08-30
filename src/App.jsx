@@ -49,8 +49,6 @@ export default function App() {
   const [penalties, setPenalties] = useState([]);
 
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
-
-  // 상세보기 모달 상태
   const [selectedRecordForDetail, setSelectedRecordForDetail] = useState(null);
 
   useEffect(() => {
@@ -129,6 +127,7 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
+  // 사진 업로드 오류 해결 (안정성 강화)
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -143,11 +142,11 @@ export default function App() {
         body: formData,
       });
       const data = await response.json();
-      if (data.success) {
+      if (data && data.success) {
         setDietPhotoUrl(data.data.url);
         alert('🌴 인증 사진이 업로드되었습니다!');
       } else {
-        alert('업로드 실패: ' + (data.error?.message || '오류 발생'));
+        alert('업로드 실패: ' + (data?.error?.message || '알 수 없는 오류 발생'));
       }
     } catch (err) {
       alert('업로드 중 오류 발생: ' + err.message);
@@ -344,24 +343,25 @@ export default function App() {
         )}
 
         {activeTab === 'calendar' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
               <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0 }}>📅 캘린더</h2>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button onClick={() => changeMonth(-1)} style={{ width: '30px', height: '30px', background: '#FFFFFF', border: '1px solid #B2DFDB', color: '#008B8B', borderRadius: '10px', fontSize: '12px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>◀</button>
-                <span style={{ padding: '6px 12px', background: '#E0F2F1', color: '#008B8B', borderRadius: '10px', fontSize: '12px', fontWeight: '900' }}>{year}.{String(month + 1).padStart(2, '0')}</span>
-                <button onClick={() => changeMonth(1)} style={{ width: '30px', height: '30px', background: '#FFFFFF', border: '1px solid #B2DFDB', color: '#008B8B', borderRadius: '10px', fontSize: '12px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>▶</button>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <button onClick={() => changeMonth(-1)} style={{ width: '28px', height: '28px', background: '#FFFFFF', border: '1px solid #B2DFDB', color: '#008B8B', borderRadius: '8px', fontSize: '11px', fontWeight: '900', cursor: 'pointer' }}>◀</button>
+                <span style={{ padding: '4px 10px', background: '#E0F2F1', color: '#008B8B', borderRadius: '8px', fontSize: '11px', fontWeight: '900' }}>{year}.{String(month + 1).padStart(2, '0')}</span>
+                <button onClick={() => changeMonth(1)} style={{ width: '28px', height: '28px', background: '#FFFFFF', border: '1px solid #B2DFDB', color: '#008B8B', borderRadius: '8px', fontSize: '11px', fontWeight: '900', cursor: 'pointer' }}>▶</button>
               </div>
             </div>
 
-            <div style={{ background: '#FFFFFF', padding: '14px 10px', borderRadius: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E0F2F1' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: '900', fontSize: '11px', color: '#A0AEC0', marginBottom: '10px' }}>
+            {/* 캘린더 세로 길이 대폭 압축 (minHeight 줄임) */}
+            <div style={{ background: '#FFFFFF', padding: '10px 8px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E0F2F1' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: '900', fontSize: '10px', color: '#A0AEC0', marginBottom: '6px' }}>
                 <span style={{ color: '#E53E3E' }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: '#3182CE' }}>토</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' }}>
                 {Array.from({ length: firstDay }).map((_, idx) => (
-                  <div key={`empty-${idx}`} style={{ minHeight: '74px', background: '#F7FAFC', borderRadius: '12px' }}></div>
+                  <div key={`empty-${idx}`} style={{ minHeight: '52px', background: '#F7FAFC', borderRadius: '8px' }}></div>
                 ))}
 
                 {Array.from({ length: daysInMonth }).map((_, idx) => {
@@ -374,22 +374,20 @@ export default function App() {
                   const partnerRec = partnerRecords.find(r => r.targetDate === dateStr);
 
                   return (
-                    <div key={dateStr} style={{ minHeight: '74px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '12px', padding: '3px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '900', color: '#008B8B', marginBottom: '2px', textAlign: 'center' }}>{dayNum}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '9px', fontWeight: '900' }}>
+                    <div key={dateStr} style={{ minHeight: '52px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '8px', padding: '2px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
+                      <div style={{ fontSize: '9px', fontWeight: '900', color: '#008B8B', marginBottom: '1px', textAlign: 'center' }}>{dayNum}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '8px', fontWeight: '900' }}>
                         
-                        {/* 내 기록 클릭 시 상세 모달 오픈 */}
                         <div 
                           onClick={() => myRec && setSelectedRecordForDetail({ ...myRec, writer: '내 기록' })}
-                          style={{ padding: '1px 2px', borderRadius: '4px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: myRec ? 'pointer' : 'default' }}
+                          style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: myRec ? 'pointer' : 'default' }}
                         >
                           나:{myRec ? (myRec.status === '성공' ? '✅' : myRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
 
-                        {/* 상대방 기록 클릭 시 상세 모달 오픈 */}
                         <div 
                           onClick={() => partnerRec && setSelectedRecordForDetail({ ...partnerRec, writer: `${partnerName} 기록` })}
-                          style={{ padding: '1px 2px', borderRadius: '4px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: partnerRec ? 'pointer' : 'default' }}
+                          style={{ padding: '1px', borderRadius: '3px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: partnerRec ? 'pointer' : 'default' }}
                         >
                           {partnerName}:{partnerRec ? (partnerRec.status === '성공' ? '✅' : partnerRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
@@ -404,24 +402,26 @@ export default function App() {
         )}
 
         {activeTab === 'record' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0, paddingLeft: '4px' }}>📝 상큼한 미션 기록하기</h2>
             
-            <div style={{ background: '#FFFFFF', padding: '20px', borderRadius: '28px', border: '1px solid #E0F2F1', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '900', color: '#008B8B', display: 'block', marginBottom: '8px' }}>📅 인증 날짜 선택</label>
-                <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #B2DFDB', fontSize: '12px', background: '#F8FBFB', fontWeight: '900', color: '#008B8B', boxSizing: 'border-box', outline: 'none' }} />
-              </div>
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: '900', color: '#008B8B', display: 'block', marginBottom: '6px' }}>📅 인증 날짜 선택</label>
+              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '14px', border: '1px solid #B2DFDB', fontSize: '12px', background: '#FFFFFF', fontWeight: '900', color: '#008B8B', boxSizing: 'border-box', outline: 'none' }} />
+            </div>
 
-              <form onSubmit={handleSaveDiet} style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '6px' }}>
-                <h4 style={{ margin: 0, color: '#FF7F50', fontWeight: '900', fontSize: '12px' }}>🥗 식단 인증 상태 선택</h4>
+            {/* 식단 인증과 운동 기록을 가로(Flex)로 배치하여 한 화면에 노출 */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              
+              {/* 식단 인증 카드 */}
+              <div style={{ flex: 1, background: '#FFFFFF', padding: '14px', borderRadius: '20px', border: '1px solid #E0F2F1', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <h4 style={{ margin: 0, color: '#FF7F50', fontWeight: '900', fontSize: '11px' }}>🥗 식단 인증</h4>
                 
-                {/* 버튼형 라디오 선택 UI */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {[
                     ['성공', '✅ 성공', '#008B8B', '#E0F2F1'],
                     ['실패', '❌ 실패', '#E53E3E', '#FFEBEE'],
-                    ['야자수 데이', '🌴 야자수 데이', '#D97706', '#FFF8E1']
+                    ['야자수 데이', '🌴 야자수', '#D97706', '#FFF8E1']
                   ].map(([val, label, activeColor, activeBg]) => {
                     const isSelected = dietStatus === val;
                     return (
@@ -430,16 +430,15 @@ export default function App() {
                         key={val}
                         onClick={() => setDietStatus(val)}
                         style={{
-                          flex: 1,
-                          padding: '12px 6px',
-                          borderRadius: '14px',
+                          width: '100%',
+                          padding: '8px 4px',
+                          borderRadius: '10px',
                           border: isSelected ? `2px solid ${activeColor}` : '1px solid #E0F2F1',
                           background: isSelected ? activeBg : '#F8FBFB',
                           color: isSelected ? activeColor : '#718096',
                           fontWeight: '900',
-                          fontSize: '11px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          fontSize: '10px',
+                          cursor: 'pointer'
                         }}
                       >
                         {label}
@@ -448,40 +447,35 @@ export default function App() {
                   })}
                 </div>
 
-                <textarea placeholder="식단 메모 입력 (예: 상큼한 아보카도 샐러드 🥗)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #B2DFDB', height: '80px', fontSize: '12px', resize: 'none', background: '#F8FBFB', fontWeight: '500', boxSizing: 'border-box', outline: 'none' }} />
+                <textarea placeholder="식단 메모" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #B2DFDB', height: '45px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '900', color: '#718096', display: 'block', marginBottom: '6px' }}>📸 인증 사진 업로드 및 확인</label>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', padding: '10px', borderRadius: '16px', border: '1px solid #B2DFDB', fontSize: '11px', background: '#F8FBFB', fontWeight: 'bold', boxSizing: 'border-box', marginBottom: '8px' }} />
-                  {uploadingImage && <p style={{ fontSize: '11px', color: '#008B8B', marginTop: '4px', fontWeight: 'bold' }}>열대 바다로 사진 전송 중... 🌊</p>}
-                  
-                  {/* 업로드된 사진 미리보기 및 삭제 기능 */}
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', fontSize: '9px', padding: '4px' }} />
+                  {uploadingImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0 0 0' }}>전송중...</p>}
                   {dietPhotoUrl && (
-                    <div style={{ position: 'relative', display: 'inline-block', marginTop: '6px' }}>
-                      <img src={dietPhotoUrl} alt="업로드된 인증샷" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '12px', border: '2px solid #008B8B' }} />
-                      <button 
-                        type="button" 
-                        onClick={() => setDietPhotoUrl('')} 
-                        style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#E53E3E', color: '#FFFFFF', border: 'none', borderRadius: '50%', width: '22px', height: '22px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
-                      >
-                        ✕
-                      </button>
+                    <div style={{ position: 'relative', display: 'inline-block', marginTop: '4px' }}>
+                      <img src={dietPhotoUrl} alt="업로드" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #008B8B' }} />
+                      <button type="button" onClick={() => setDietPhotoUrl('')} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', cursor: 'pointer' }}>✕</button>
                     </div>
                   )}
                 </div>
 
-                <button type="submit" style={{ width: '100%', padding: '14px', background: '#008B8B', color: '#FFFFFF', borderRadius: '16px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(0, 139, 139, 0.25)', marginTop: '4px' }}>식단 저장하기 🌴</button>
-              </form>
-            </div>
+                <button type="button" onClick={handleSaveDiet} style={{ width: '100%', padding: '10px', background: '#008B8B', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>식단 저장</button>
+              </div>
 
-            <div style={{ background: '#FFFFFF', padding: '20px', borderRadius: '28px', border: '1px solid #E0F2F1', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-              <form onSubmit={handleSaveWorkout} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <h4 style={{ margin: 0, color: '#32CD32', fontWeight: '900', fontSize: '12px' }}>💪 운동 인증 기록 (하루 최대 1회)</h4>
-                <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #C8E6C9', fontSize: '12px', background: '#F8FBFB', fontWeight: '500', boxSizing: 'border-box', outline: 'none' }} />
-                <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #C8E6C9', fontSize: '12px', background: '#F8FBFB', fontWeight: '500', boxSizing: 'border-box', outline: 'none' }} />
-                <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #C8E6C9', height: '80px', fontSize: '12px', resize: 'none', background: '#F8FBFB', fontWeight: '500', boxSizing: 'border-box', outline: 'none' }} />
-                <button type="submit" style={{ width: '100%', padding: '14px', background: '#32CD32', color: '#FFFFFF', borderRadius: '16px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(50, 205, 50, 0.25)' }}>운동 완료 저장하기 🔥</button>
-              </form>
+              {/* 운동 인증 카드 */}
+              <div style={{ flex: 1, background: '#FFFFFF', padding: '14px', borderRadius: '20px', border: '1px solid #E0F2F1', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <h4 style={{ margin: 0, color: '#32CD32', fontWeight: '900', fontSize: '11px' }}>💪 운동 인증</h4>
+                
+                <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
+                <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="시간 (분)" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
+                <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '45px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
+                
+                <div style={{ height: '21px' }}></div> {/* 높이 맞춤 빈 공간 */}
+
+                <button type="button" onClick={handleSaveWorkout} style={{ width: '100%', padding: '10px', background: '#32CD32', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>운동 저장</button>
+              </div>
+
             </div>
           </div>
         )}
@@ -521,7 +515,6 @@ export default function App() {
               </div>
             )}
 
-            {/* 내 기록일 경우에만 삭제 버튼 노출 */}
             {selectedRecordForDetail.ownerEmail === currentUser.email && (
               <button 
                 onClick={() => handleDeleteRecord(selectedRecordForDetail.id)} 
