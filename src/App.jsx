@@ -37,12 +37,14 @@ export default function App() {
   const [targetDate, setTargetDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
   const [dietStatus, setDietStatus] = useState('성공'); 
   const [dietMemo, setDietMemo] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [dietPhotoUrl, setDietPhotoUrl] = useState('');
+  const [uploadingDietImage, setUploadingDietImage] = useState(false);
+  const [dietPhotoUrls, setDietPhotoUrls] = useState([]); // 다중 사진 배열
   
   const [workoutType, setWorkoutType] = useState('헬스/피트니스');
   const [durationMinutes, setDurationMinutes] = useState('30');
   const [workoutMemo, setWorkoutMemo] = useState('');
+  const [uploadingWorkoutImage, setUploadingWorkoutImage] = useState(false);
+  const [workoutPhotoUrls, setWorkoutPhotoUrls] = useState([]); // 운동 다중 사진 배열
 
   const [myRecords, setMyRecords] = useState([]);
   const [partnerRecords, setPartnerRecords] = useState([]);
@@ -127,31 +129,73 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
-  // 사진 업로드 오류 수정 (Base64 변환 방식으로 외부 API 오류 원천 해결)
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert('이미지 용량이 너무 큽니다. 2MB 이하의 사진을 선택해주세요!');
-      return;
-    }
-
-    setUploadingImage(true);
-    const reader = new FileReader();
+  // 대용량 사진 압축 및 다중 처리 공통 함수
+  const processImageFiles = (files, setUploading, setUrlsState, currentUrls) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
     
-    reader.onloadend = () => {
-      setDietPhotoUrl(reader.result);
-      setUploadingImage(false);
-      alert('🌴 인증 사진이 성공적으로 첨부되었습니다!');
-    };
+    const newFiles = Array.from(files);
+    let processedCount = 0;
+    const results = [...currentUrls];
 
-    reader.onerror = () => {
-      setUploadingImage(false);
-      alert('사진을 불러오는 중 오류가 발생했습니다.');
-    };
+    newFiles.forEach((file) => {
+      // 용량 제한 10MB 완화
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`'${file.name}' 사진 용량이 10MB를 초과하여 제외되었습니다.`);
+        processedCount++;
+        if (processedCount === newFiles.length) setUploading(false);
+        return;
+      }
 
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_WIDTH = 1000;
+          const MAX_HEIGHT = 1000;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // 자동 압축 (품질 0.8)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          results.push(dataUrl);
+
+          processedCount++;
+          if (processedCount === newFiles.length) {
+            setUrlsState(results);
+            setUploading(false);
+          }
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDietImagesUpload = (e) => {
+    processImageFiles(e.target.files, setUploadingDietImage, setDietPhotoUrls, dietPhotoUrls);
+  };
+
+  const handleWorkoutImagesUpload = (e) => {
+    processImageFiles(e.target.files, setUploadingWorkoutImage, setWorkoutPhotoUrls, workoutPhotoUrls);
   };
 
   const handlePoke = async () => {
@@ -179,13 +223,43 @@ export default function App() {
         targetDate: targetDate,
         status: dietStatus,
         memo: dietMemo,
-        photoUrls: dietPhotoUrl ? [dietPhotoUrl] : [],
-        isLocked: false,
+        photoUrls: dietPhotoUrls,
+        workoutType: '',
+        durationMinutes: '',
+        workoutMemo: '',
+        workoutPhotoUrls: [],
         createdAt: new Date().toISOString()
       });
       alert('🥗 식단 기록이 저장되었습니다!');
       setDietMemo('');
-      setDietPhotoUrl('');
+      setDietPhotoUrls([]);
+      fetchRecords();
+    } catch (err) {
+      alert('저장 실패: ' + err.message);
+    }
+  };
+
+  const handleSaveWorkout = async (e) => {
+    e.preventDefault();
+    try {
+      // 식단/운동 통합 기록 형태로 저장 (캘린더 연동 용이)
+      await addDoc(collection(db, 'dietCheckins'), {
+        coupleID: 'couple_01',
+        ownerEmail: currentUser.email,
+        partnerEmail: partnerEmail,
+        targetDate: targetDate,
+        status: '운동완료',
+        memo: workoutMemo,
+        photoUrls: [],
+        workoutType: workoutType,
+        durationMinutes: durationMinutes,
+        workoutMemo: workoutMemo,
+        workoutPhotoUrls: workoutPhotoUrls,
+        createdAt: new Date().toISOString()
+      });
+      alert('💪 운동 기록이 저장되었습니다!');
+      setWorkoutMemo('');
+      setWorkoutPhotoUrls([]);
       fetchRecords();
     } catch (err) {
       alert('저장 실패: ' + err.message);
@@ -201,28 +275,6 @@ export default function App() {
       fetchRecords();
     } catch (err) {
       alert('삭제 실패: ' + err.message);
-    }
-  };
-
-  const handleSaveWorkout = async (e) => {
-    e.preventDefault();
-    try {
-      await addDoc(collection(db, 'exerciseLogs'), {
-        coupleID: 'couple_01',
-        ownerEmail: currentUser.email,
-        partnerEmail: partnerEmail,
-        targetDate: targetDate,
-        exerciseType: workoutType,
-        durationMinutes: durationMinutes,
-        memo: workoutMemo,
-        completed: true,
-        isLocked: false,
-        createdAt: new Date().toISOString()
-      });
-      alert('💪 운동 기록이 저장되었습니다!');
-      setWorkoutMemo('');
-    } catch (err) {
-      alert('저장 실패: ' + err.message);
     }
   };
 
@@ -252,7 +304,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4FBFB', color: '#008B8B', fontWeight: 'bold', fontSize: '15px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4FBFB', color: '#008B8B', fontWeight: 'bold', fontSize: '15px' }}>
         🌴 푸켓 바다 불러오는 중...
       </div>
     );
@@ -260,7 +312,7 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '32px', background: '#FFFFFF', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0, 139, 139, 0.1)', border: '1px solid #E0F2F1', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '32px', background: '#FFFFFF', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0, 139, 139, 0.1)', border: '1px solid #E0F2F1' }}>
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <span style={{ fontSize: '48px' }}>🍍</span>
           <h2 style={{ color: '#008B8B', fontSize: '24px', fontWeight: '900', margin: '12px 0 4px 0' }}>푸켓행 바디 챌린지</h2>
@@ -409,7 +461,7 @@ export default function App() {
               <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '14px', border: '1px solid #B2DFDB', fontSize: '12px', background: '#FFFFFF', fontWeight: '900', color: '#008B8B', boxSizing: 'border-box', outline: 'none' }} />
             </div>
 
-            {/* 식단 인증과 운동 기록을 가로(Flex)로 배치 */}
+            {/* 식단 인증과 운동 인증 가로 배치 */}
             <div style={{ display: 'flex', gap: '10px' }}>
               
               {/* 식단 인증 카드 */}
@@ -446,15 +498,24 @@ export default function App() {
                   })}
                 </div>
 
-                <textarea placeholder="식단 메모" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #B2DFDB', height: '45px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
+                <textarea placeholder="식단 메모" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #B2DFDB', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
+                {/* 가시성이 뛰어난 고도화된 다중 사진 업로드 버튼 */}
                 <div>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', fontSize: '9px', padding: '4px' }} />
-                  {uploadingImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0 0 0' }}>변환중...</p>}
-                  {dietPhotoUrl && (
-                    <div style={{ position: 'relative', display: 'inline-block', marginTop: '4px' }}>
-                      <img src={dietPhotoUrl} alt="업로드" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #008B8B' }} />
-                      <button type="button" onClick={() => setDietPhotoUrl('')} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '9px', cursor: 'pointer' }}>✕</button>
+                  <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E0F2F1', color: '#00695C', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #008B8B', boxSizing: 'border-box' }}>
+                    📸 식단 사진 추가 ({dietPhotoUrls.length}장)
+                    <input type="file" accept="image/*" multiple onChange={handleDietImagesUpload} style={{ display: 'none' }} />
+                  </label>
+                  {uploadingDietImage && <p style={{ fontSize: '9px', color: '#008B8B', margin: '2px 0', textAlign: 'center' }}>압축 및 첨부 중...</p>}
+                  
+                  {dietPhotoUrls.length > 0 && (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {dietPhotoUrls.map((url, index) => (
+                        <div key={index} style={{ position: 'relative' }}>
+                          <img src={url} alt="식단" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #008B8B' }} />
+                          <button type="button" onClick={() => setDietPhotoUrls(dietPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -462,15 +523,33 @@ export default function App() {
                 <button type="button" onClick={handleSaveDiet} style={{ width: '100%', padding: '10px', background: '#008B8B', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>식단 저장</button>
               </div>
 
-              {/* 운동 인증 카드 */}
+              {/* 운동 인증 카드 (사진 업로드 포함) */}
               <div style={{ flex: 1, background: '#FFFFFF', padding: '14px', borderRadius: '20px', border: '1px solid #E0F2F1', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <h4 style={{ margin: 0, color: '#32CD32', fontWeight: '900', fontSize: '11px' }}>💪 운동 인증</h4>
                 
                 <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="시간 (분)" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
-                <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '45px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
+                <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                <div style={{ height: '21px' }}></div>
+                {/* 운동 인증 다중 사진 업로드 */}
+                <div>
+                  <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E8F5E9', color: '#2E7D32', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #32CD32', boxSizing: 'border-box' }}>
+                    📸 운동 인증샷 ({workoutPhotoUrls.length}장)
+                    <input type="file" accept="image/*" multiple onChange={handleWorkoutImagesUpload} style={{ display: 'none' }} />
+                  </label>
+                  {uploadingWorkoutImage && <p style={{ fontSize: '9px', color: '#32CD32', margin: '2px 0', textAlign: 'center' }}>압축 및 첨부 중...</p>}
+                  
+                  {workoutPhotoUrls.length > 0 && (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {workoutPhotoUrls.map((url, index) => (
+                        <div key={index} style={{ position: 'relative' }}>
+                          <img src={url} alt="운동" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #32CD32' }} />
+                          <button type="button" onClick={() => setWorkoutPhotoUrls(workoutPhotoUrls.filter((_, i) => i !== index))} style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#E53E3E', color: '#FFF', border: 'none', borderRadius: '50%', width: '14px', height: '14px', fontSize: '8px', cursor: 'pointer' }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <button type="button" onClick={handleSaveWorkout} style={{ width: '100%', padding: '10px', background: '#32CD32', color: '#FFFFFF', borderRadius: '10px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '11px' }}>운동 저장</button>
               </div>
@@ -496,21 +575,39 @@ export default function App() {
       {/* 날짜 기록 상세보기 및 삭제 모달 */}
       {selectedRecordForDetail && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '340px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative' }}>
+          <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '340px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#008B8B' }}>{selectedRecordForDetail.writer} ({selectedRecordForDetail.targetDate})</h3>
               <button onClick={() => setSelectedRecordForDetail(null)} style={{ background: 'transparent', border: 'none', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: '#A0AEC0' }}>✕</button>
             </div>
             
             <div style={{ background: '#F8FBFB', padding: '14px', borderRadius: '16px', border: '1px solid #E0F2F1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#2D3748' }}>상태: <span style={{ color: selectedRecordForDetail.status === '성공' ? '#008B8B' : selectedRecordForDetail.status === '야자수 데이' ? '#D97706' : '#E53E3E' }}>{selectedRecordForDetail.status}</span></p>
+              <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#2D3748' }}>상태: <span style={{ color: selectedRecordForDetail.status === '성공' ? '#008B8B' : selectedRecordForDetail.status === '운동완료' ? '#32CD32' : selectedRecordForDetail.status === '야자수 데이' ? '#D97706' : '#E53E3E' }}>{selectedRecordForDetail.status}</span></p>
+              {selectedRecordForDetail.workoutType && <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#32CD32' }}>운동: {selectedRecordForDetail.workoutType} ({selectedRecordForDetail.durationMinutes}분)</p>}
               <p style={{ margin: 0, fontSize: '12px', color: '#4A5568', fontWeight: '500' }}>메모: {selectedRecordForDetail.memo || '작성된 메모가 없습니다.'}</p>
             </div>
 
+            {/* 식단 인증 사진들 */}
             {selectedRecordForDetail.photoUrls && selectedRecordForDetail.photoUrls.length > 0 && (
               <div>
-                <p style={{ fontSize: '11px', fontWeight: '900', color: '#718096', marginBottom: '6px' }}>📸 인증 사진</p>
-                <img src={selectedRecordForDetail.photoUrls[0]} alt="인증샷" style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '16px', border: '1px solid #E0F2F1' }} />
+                <p style={{ fontSize: '11px', fontWeight: '900', color: '#FF7F50', marginBottom: '6px' }}>🥗 식단 인증 사진</p>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {selectedRecordForDetail.photoUrls.map((url, i) => (
+                    <img key={i} src={url} alt="식단인증샷" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1' }} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 운동 인증 사진들 */}
+            {selectedRecordForDetail.workoutPhotoUrls && selectedRecordForDetail.workoutPhotoUrls.length > 0 && (
+              <div>
+                <p style={{ fontSize: '11px', fontWeight: '900', color: '#32CD32', marginBottom: '6px' }}>💪 운동 인증 사진</p>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {selectedRecordForDetail.workoutPhotoUrls.map((url, i) => (
+                    <img key={i} src={url} alt="운동인증샷" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1' }} />
+                  ))}
+                </div>
               </div>
             )}
 
