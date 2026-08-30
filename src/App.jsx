@@ -53,8 +53,9 @@ export default function App() {
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   const [selectedDateForDetail, setSelectedDateForDetail] = useState(null);
   
-  // 사진 크게 보기(모달)를 위한 상태
+  // 사진 크게 보기(모달) 및 갤러리 하위 필터 상태 ('all' | 'diet' | 'workout')
   const [modalImageSrc, setModalImageSrc] = useState(null);
+  const [gallerySubTab, setGallerySubTab] = useState('all');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -472,8 +473,41 @@ export default function App() {
 
         {activeTab === 'gallery' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0, paddingLeft: '4px' }}>🖼️ 날짜별 사진 갤러리</h2>
-            <p style={{ margin: 0, fontSize: '11px', color: '#718096', paddingLeft: '4px' }}>우리(나와 {partnerName}님)가 올린 인증 사진들을 날짜별로 모아볼 수 있어요!</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '4px', paddingRight: '4px' }}>
+              <div>
+                <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0 }}>🖼️ 날짜별 사진 갤러리</h2>
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#718096' }}>우리 인증 사진 모아보기</p>
+              </div>
+
+              {/* 식단 / 운동 / 전체 구분 버튼 */}
+              <div style={{ display: 'flex', background: '#E0F2F1', padding: '3px', borderRadius: '12px', gap: '2px' }}>
+                {[
+                  ['all', '전체'],
+                  ['diet', '🥗 식단'],
+                  ['workout', '💪 운동']
+                ].map(([tabKey, tabLabel]) => {
+                  const isSubActive = gallerySubTab === tabKey;
+                  return (
+                    <button
+                      key={tabKey}
+                      onClick={() => setGallerySubTab(tabKey)}
+                      style={{
+                        background: isSubActive ? '#008B8B' : 'transparent',
+                        color: isSubActive ? '#FFFFFF' : '#00695C',
+                        border: 'none',
+                        borderRadius: '9px',
+                        padding: '6px 10px',
+                        fontSize: '10px',
+                        fontWeight: '900',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {tabLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {allCombinedRecords.length === 0 ? (
               <div style={{ background: '#FFFFFF', padding: '30px', borderRadius: '20px', textAlign: 'center', border: '1px solid #E0F2F1', color: '#A0AEC0', fontSize: '12px', fontWeight: 'bold' }}>
@@ -487,6 +521,9 @@ export default function App() {
                   const hasDietPhotos = rec.photoUrls && rec.photoUrls.length > 0;
                   const hasWorkoutPhotos = rec.workoutPhotoUrls && rec.workoutPhotoUrls.length > 0;
 
+                  // 서브 탭 조건에 따라 필터링
+                  if (gallerySubTab === 'diet' && !hasDietPhotos) return null;
+                  if (gallerySubTab === 'workout' && !hasWorkoutPhotos) return null;
                   if (!hasDietPhotos && !hasWorkoutPhotos) return null;
 
                   return (
@@ -504,8 +541,8 @@ export default function App() {
                         {rec.memo && <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#718096' }}>메모: {rec.memo}</p>}
                       </div>
 
-                      {/* 식단 사진 목록 */}
-                      {hasDietPhotos && (
+                      {/* 식단 사진 목록 (전체 혹은 식단 탭일 때 노출) */}
+                      {hasDietPhotos && (gallerySubTab === 'all' || gallerySubTab === 'diet') && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 4px 0' }}>🥗 식단 사진</p>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -522,8 +559,8 @@ export default function App() {
                         </div>
                       )}
 
-                      {/* 운동 사진 목록 */}
-                      {hasWorkoutPhotos && (
+                      {/* 운동 사진 목록 (전체 혹은 운동 탭일 때 노출) */}
+                      {hasWorkoutPhotos && (gallerySubTab === 'all' || gallerySubTab === 'workout') && (
                         <div>
                           <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '6px 0 4px 0' }}>💪 운동 사진</p>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -818,7 +855,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 하단 네비게이션 바 (갤러리 탭 추가) */}
+      {/* 하단 네비게이션 바 */}
       <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '420px', background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(10px)', borderTop: '1px solid #E0F2F1', display: 'flex', justifyContent: 'space-around', padding: '10px 0', zIndex: 900, boxShadow: '0 -10px 25px rgba(0,0,0,0.05)', borderTopLeftRadius: '28px', borderTopRightRadius: '28px' }}>
         {[
           ['home', '🏠 홈'], 
