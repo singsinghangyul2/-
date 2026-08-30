@@ -4,7 +4,7 @@ import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
-  getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs, setIndexConfiguration
+  getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs 
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -22,6 +22,14 @@ const db = getFirestore(app);
 
 const sanitizeEmail = (email) => email ? email.trim().toLowerCase().replace(/\./g, '_') : '';
 
+// 이번 주 월요일 날짜 구하기 (Asia/Seoul 기준)
+const getMondayOfCurrentWeek = (d = new Date()) => {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(date.setDate(diff));
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +42,6 @@ export default function App() {
   const [alertMessage, setAlertMessage] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // 입력 상태
   const [targetDate, setTargetDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
   const [dietStatus, setDietStatus] = useState('성공'); 
   const [dietMemo, setDietMemo] = useState('');
@@ -46,7 +53,11 @@ export default function App() {
   const [workoutCompleted, setWorkoutCompleted] = useState(true);
 
   const [myRecords, setMyRecords] = useState([]);
+  const [partnerRecords, setPartnerRecords] = useState([]);
   const [penalties, setPenalties] = useState([]);
+
+  // 주간 캘린더 상태 (기준 월요일)
+  const [weekStartDate, setWeekStartDate] = useState(getMondayOfCurrentWeek());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -69,7 +80,6 @@ export default function App() {
   const sanitizedMyEmailKey = sanitizeEmail(currentUser?.email);
   const sanitizedPartnerEmailKey = sanitizeEmail(partnerEmail);
 
-  // D-Day 계산 (Asia/Seoul 기준)
   const calculateDday = () => {
     const target = new Date('2026-12-31T00:00:00+09:00');
     const todayStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
@@ -79,7 +89,6 @@ export default function App() {
     return diffDays > 0 ? diffDays : 0;
   };
 
-  // 실시간 콕 찌르기 리스너
   useEffect(() => {
     if (!currentUser) return;
     const docRef = doc(db, 'challenges', 'couple_poke_data');
@@ -106,20 +115,18 @@ export default function App() {
     if (!currentUser) return;
     const fetchRecords = async () => {
       try {
-        const q = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
-        const querySnapshot = await getDocs(q);
-        const list = [];
-        querySnapshot.forEach((docSnap) => {
+        // 내 기록
+        const myQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
+        const mySnap = await getDocs(myQ);
+        const myList = [];
+        mySnap.forEach((docSnap) => {
           const data = docSnap.data();
-          // 마감 검증: 대상 날짜의 다음 날 오후 11시 59분 59초 초과 여부 확인
           const targetD = new Date(data.targetDate);
-          const deadline = new Date(targetD.setDate(targetD.getDate() + 2)); // 다다음날 0시 직전
+          const deadline = new Date(targetD.setDate(targetD.getDate() + 2));
           deadline.setHours(0, 0, 0, 0);
           
           const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
           if (now >= deadline && !data.isLocked) {
-            // 자동 실패 및 벌금 정산 트리거
-            // UniquePenaltyKey: OwnerEmail + TargetDate + PenaltyType
             const penaltyKey = `${currentUser.email}_${data.targetDate}_DIET`;
             if (data.status === '미입력' || data.status === '실패') {
               addDoc(collection(db, 'penalties'), {
@@ -132,14 +139,21 @@ export default function App() {
                 reason: `식단 마감 초과/실패 (${data.targetDate})`,
                 uniquePenaltyKey: penaltyKey,
                 createdAt: new Date().toISOString()
-              }).catch(() => {}); // 중복 키 에러 무시
+              }).catch(() => {});
             }
           }
-          list.push({ id: docSnap.id, ...data });
+          myList.push({ id: docSnap.id, ...data });
         });
-        setMyRecords(list);
+        setMyRecords(myList);
 
-        // 벌금 현황 로드
+        // 파트너 기록
+        const partnerQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', partnerEmail));
+        const partnerSnap = await getDocs(partnerQ);
+        const partnerList = [];
+        partnerSnap.forEach((docSnap) => partnerList.push({ id: docSnap.id, ...docSnap.data() }));
+        setPartnerRecords(partnerList);
+
+        // 벌금 현황
         const pQuery = query(collection(db, 'penalties'), where('ownerEmail', '==', currentUser.email));
         const pSnapshot = await getDocs(pQuery);
         const pList = [];
@@ -150,7 +164,7 @@ export default function App() {
       }
     };
     fetchRecords();
-  }, [currentUser, activeTab]);
+  }, [currentUser, activeTab, partnerEmail]);
 
   const handlePoke = async () => {
     try {
@@ -235,21 +249,38 @@ export default function App() {
 
   const handleLogout = async () => { await signOut(auth); };
 
+  // 7일(월~일) 날짜 배열 생성
+  const getDaysOfCurrentWeek = () => {
+    const days = [];
+    let current = new Date(weekStartDate);
+    for (let i = 0; i < 7; i++) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return days;
+  };
+
+  const changeWeek = (direction) => {
+    const newDate = new Date(weekStartDate);
+    newDate.setDate(newDate.getDate() + (direction * 7));
+    setWeekStartDate(newDate);
+  };
+
   if (loading) {
-    return <div className="text-center mt-24 text-lg text-teal-600 font-bold">로딩 중... 🏝️</div>;
+    return <div style={{ textAlign: 'center', marginTop: '100px', color: '#00838f', fontWeight: 'bold' }}>로딩 중... 🏝️</div>;
   }
 
   if (!currentUser) {
     return (
-      <div className="max-w-md mx-auto mt-16 p-8 bg-[#fdfbf7] rounded-3xl shadow-lg border border-teal-100">
-        <h2 className="text-center text-teal-700 text-2xl font-black mb-2">🏝️ 푸켓행 바디 챌린지</h2>
-        <p className="text-center text-gray-500 text-sm mb-6">승현 & 상오니의 커플 식단 및 운동 미션 관리</p>
-        <form onSubmit={handleAuth} className="flex flex-col gap-4">
-          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
-          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
-          <button type="submit" className="p-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition">{isSignUp ? '가입하기' : '로그인하기'}</button>
+      <div style={{ maxWidth: '400px', margin: '50px auto', padding: '30px', background: '#fdfbf7', borderRadius: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #e0f2f1' }}>
+        <h2 style={{ textAlign: 'center', color: '#00695c' }}>🏝️ 푸켓행 바디 챌린지</h2>
+        <p style={{ textAlign: 'center', color: '#666', fontSize: '13px', marginBottom: '20px' }}>승현 & 상오니의 커플 식단 및 운동 미션 관리</p>
+        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ padding: '12px', borderRadius: '10px', border: '1px solid #b2dfdb' }} />
+          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ padding: '12px', borderRadius: '10px', border: '1px solid #b2dfdb' }} />
+          <button type="submit" style={{ padding: '12px', background: '#00838f', color: '#fff', borderRadius: '10px', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>{isSignUp ? '가입하기' : '로그인하기'}</button>
         </form>
-        <button onClick={() => setIsSignUp(!isSignUp)} className="bg-transparent border-none text-coral-500 mt-5 w-full font-bold cursor-pointer text-sm">
+        <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: '#ff7043', marginTop: '15px', width: '100%', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
           {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
         </button>
       </div>
@@ -257,113 +288,146 @@ export default function App() {
   }
 
   const totalPenalty = penalties.reduce((acc, cur) => acc + (cur.amount || 0), 0);
+  const weekDays = getDaysOfCurrentWeek();
 
   return (
-    <div className="max-w-md mx-auto pb-24 font-sans bg-[#fdfbf7] min-h-screen relative text-gray-800">
+    <div style={{ maxWidth: '400px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'sans-serif', background: '#fdfbf7', minHeight: '100vh', position: 'relative', color: '#333' }}>
       
       {alertMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-rose-500 text-white px-5 py-3 rounded-full shadow-xl z-50 font-bold text-sm animate-bounce">
+        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#ff5252', color: '#fff', padding: '12px 20px', borderRadius: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: 50, fontWeight: 'bold', fontSize: '13px' }}>
           {alertMessage}
         </div>
       )}
 
-      <header className="p-4 bg-teal-600 text-white flex justify-between items-center shadow-md">
-        <h3 className="m-0 text-lg font-black">푸켓행 바디 챌린지 🏝️</h3>
-        <span className="text-xs bg-white/20 px-3 py-1.5 rounded-full font-bold">{myName}님 환영해요!</span>
+      <header style={{ padding: '15px', background: '#00838f', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0, fontSize: '16px' }}>푸켓행 바디 챌린지 🏝️</h3>
+        <span style={{ fontSize: '12px', background: 'rgba(255,255,255,0.2)', padding: '4px 10px', borderRadius: '20px' }}>{myName}님 환영해요!</span>
       </header>
 
-      <main className="p-5">
+      <main style={{ padding: '20px' }}>
         {activeTab === 'home' && (
           <div>
-            <div className="bg-gradient-to-br from-cyan-50 to-teal-50 p-6 rounded-2xl text-center mb-5 border border-teal-200 shadow-sm">
-              <h2 className="m-0 mb-2 text-teal-800 text-2xl font-black">푸켓까지 D-{calculateDday()} 🏝️</h2>
-              <p className="m-0 text-teal-600 text-sm font-bold">야자수 아래의 우리를 상상하며 오늘도 한 걸음!</p>
+            <div style={{ background: 'linear-gradient(135deg, #e0f7fa 0%, #e8f5e9 100%)', padding: '20px', borderRadius: '16px', textAlign: 'center', marginBottom: '20px', border: '1px solid #b2dfdb' }}>
+              <h2 style={{ margin: '0 0 8px 0', color: '#00695c' }}>푸켓까지 D-{calculateDday()} 🏝️</h2>
+              <p style={{ margin: 0, color: '#00838f', fontSize: '13px', fontWeight: 'bold' }}>야자수 아래의 우리를 상상하며 오늘도 한 걸음!</p>
             </div>
 
-            <h3 className="text-gray-700 text-base font-bold mb-3">🏠 {partnerName}의 파트너 상태 카드</h3>
-            <div className="bg-white p-5 rounded-2xl mb-4 border border-gray-100 shadow-sm">
-              <p className="m-0 mb-3 font-bold text-gray-700">❤️ {partnerName}님과 함께 달리는 중</p>
-              <div className="flex gap-2">
-                <button onClick={handlePoke} className="flex-1 p-3 bg-rose-400 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-rose-500 transition text-sm">🥗 식단 콕 찌르기 👉</button>
-                <button onClick={handlePoke} className="flex-1 p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">💪 운동 콕 찌르기 👉</button>
+            <h4 style={{ color: '#555', fontSize: '14px', marginBottom: '10px' }}>🏠 {partnerName}의 파트너 상태 카드</h4>
+            <div style={{ background: '#fff', padding: '15px', borderRadius: '16px', marginBottom: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <p style={{ margin: '0 0 12px 0', fontWeight: 'bold', fontSize: '13px', color: '#555' }}>❤️ {partnerName}님과 함께 달리는 중</p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={handlePoke} style={{ flex: 1, padding: '10px', background: '#ff7043', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>🥗 식단 콕 찌르기 👉</button>
+                <button onClick={handlePoke} style={{ flex: 1, padding: '10px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>💪 운동 콕 찌르기 👉</button>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="m-0 mb-2 font-bold text-gray-700">💰 이번 달 누적 벌금 현황</p>
-              <p className="m-0 text-rose-600 font-bold">내 누적 벌금: {totalPenalty.toLocaleString()}원</p>
+            <div style={{ background: '#fff', padding: '15px', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', fontSize: '13px', color: '#555' }}>💰 이번 달 누적 벌금 현황</p>
+              <p style={{ margin: 0, color: '#d32f2f', fontWeight: 'bold', fontSize: '15px' }}>내 누적 벌금: {totalPenalty.toLocaleString()}원</p>
             </div>
           </div>
         )}
 
         {activeTab === 'calendar' && (
           <div>
-            <h2 className="text-xl font-black mb-1">📅 주간 캘린더 및 기록 조회</h2>
-            <p className="text-gray-500 text-xs mb-4">월요일부터 일요일까지의 식단/운동 상태를 비교하세요.</p>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-              <h4 className="font-bold text-sm mb-3">내 저장된 기록 내역 ({myRecords.length}개)</h4>
-              {myRecords.map((r, i) => (
-                <div key={i} className="py-3 border-b border-gray-100 text-sm">
-                  <div className="flex justify-between font-bold text-teal-700">
-                    <span>[{r.targetDate}] 식단: {r.status}</span>
-                    <span className="text-xs text-gray-400">{r.isLocked ? '🔒 마감 완료' : '🔓 수정 가능'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ fontSize: '16px', margin: 0 }}>📅 커플 주간 캘린더</h3>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button onClick={() => changeWeek(-1)} style={{ padding: '6px 10px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>◀ 이전주</button>
+                <button onClick={() => changeWeek(1)} style={{ padding: '6px 10px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>다음주 ▶</button>
+              </div>
+            </div>
+            <p style={{ color: '#666', fontSize: '11px', marginBottom: '15px' }}>
+              {weekDays[0].toLocaleDateString()} ~ {weekDays[6].toLocaleDateString()} (월~일)
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {weekDays.map((day, idx) => {
+                const dateStr = day.toLocaleDateString('en-CA');
+                const myRec = myRecords.find(r => r.targetDate === dateStr);
+                const partnerRec = partnerRecords.find(r => r.targetDate === dateStr);
+                const dayName = ['일', '월', '화', '수', '목', '금', '토'][day.getDay()];
+
+                return (
+                  <div key={idx} style={{ background: '#fff', padding: '12px', borderRadius: '12px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', border: '1px solid #eee' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#00838f', marginBottom: '8px', borderBottom: '1px solid #f5f5f5', paddingBottom: '4px' }}>
+                      {day.getMonth() + 1}월 {day.getDate()}일 ({dayName})
+                    </div>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                      {/* 내 기록 */}
+                      <div style={{ flex: 1, paddingRight: '8px', borderRight: '1px solid #eee' }}>
+                        <span style={{ fontWeight: 'bold', color: '#333' }}>나 ({myName})</span>
+                        <div style={{ marginTop: '4px', color: myRec ? (myRec.status === '성공' ? '#2e7d32' : myRec.status === '야자수 데이' ? '#f57c00' : '#d32f2f') : '#888' }}>
+                          식단: {myRec ? `${myRec.status} ${myRec.status === '성공' ? '✅' : myRec.status === '야자수 데이' ? '🌴' : '❌'}` : '미입력 ⚪'}
+                        </div>
+                        {myRec?.photoUrls?.[0] && <div style={{ fontSize: '10px', color: '#00838f', marginTop: '2px' }}>📷 인증 사진 있음</div>}
+                      </div>
+
+                      {/* 상대방 기록 */}
+                      <div style={{ flex: 1, paddingLeft: '8px' }}>
+                        <span style={{ fontWeight: 'bold', color: '#333' }}>상대 ({partnerName})</span>
+                        <div style={{ marginTop: '4px', color: partnerRec ? (partnerRec.status === '성공' ? '#2e7d32' : partnerRec.status === '야자수 데이' ? '#f57c00' : '#d32f2f') : '#888' }}>
+                          식단: {partnerRec ? `${partnerRec.status} ${partnerRec.status === '성공' ? '✅' : partnerRec.status === '야자수 데이' ? '🌴' : '❌'}` : '미입력 ⚪'}
+                        </div>
+                        {partnerRec?.photoUrls?.[0] && <div style={{ fontSize: '10px', color: '#00838f', marginTop: '2px' }}>📷 인증 사진 있음</div>}
+                      </div>
+                    </div>
                   </div>
-                  <p className="m-1 text-gray-600 text-xs">메모: {r.memo || '없음'}</p>
-                  {r.photoUrls?.[0] && <p className="m-0 text-teal-600 text-xs">📷 사진 등록됨 ({r.photoUrls.length}장)</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
         {activeTab === 'record' && (
           <div>
-            <h2 className="text-xl font-black mb-3">📝 식단 및 운동 기록 입력</h2>
-            <div className="mb-4">
-              <label className="text-xs font-bold text-gray-600">대상 날짜 선택 (오늘 또는 어제만 가능):</label>
-              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mt-1 text-sm bg-white" />
+            <h3 style={{ fontSize: '16px', marginBottom: '12px' }}>📝 식단 및 운동 기록 입력</h3>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#666' }}>대상 날짜 선택 (오늘 또는 어제만 가능):</label>
+              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #b2dfdb', marginTop: '5px', boxSizing: 'border-box', background: '#fff' }} />
             </div>
 
-            <form onSubmit={handleSaveDiet} className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
-              <h4 className="m-0 mb-3 text-teal-700 font-bold text-sm">🥗 식단 기록</h4>
-              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 font-bold text-sm bg-white">
+            <form onSubmit={handleSaveDiet} style={{ background: '#fff', padding: '15px', borderRadius: '16px', marginBottom: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#00838f', fontSize: '13px' }}>🥗 식단 기록</h4>
+              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #b2dfdb', marginBottom: '10px', fontWeight: 'bold', fontSize: '13px', background: '#fff' }}>
                 <option value="성공">성공 ✅</option>
                 <option value="실패">실패 ❌</option>
                 <option value="야자수 데이">야자수 데이 🌴 (치팅 예외일)</option>
               </select>
-              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 h-20 text-sm resize-none" />
-              <input type="text" placeholder="인증 사진 URL (여러 장 지원 가능)" value={dietPhotoUrl} onChange={(e) => setDietPhotoUrl(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 text-sm" />
-              <button type="submit" className="w-full p-3 bg-teal-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-teal-700 transition text-sm">식단 저장하기</button>
+              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #b2dfdb', marginBottom: '10px', height: '60px', fontSize: '13px', resize: 'none', boxSizing: 'border-box' }} />
+              <input type="text" placeholder="인증 사진 URL (선택)" value={dietPhotoUrl} onChange={(e) => setDietPhotoUrl(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #b2dfdb', marginBottom: '10px', fontSize: '13px', boxSizing: 'border-box' }} />
+              <button type="submit" style={{ width: '100%', padding: '12px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>식단 저장하기</button>
             </form>
 
-            <form onSubmit={handleSaveWorkout} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="m-0 mb-3 text-emerald-700 font-bold text-sm">💪 운동 기록 (하루 최대 1회 인정)</h4>
-              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
-              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
-              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} className="w-full p-3 rounded-xl border border-emerald-200 mb-3 h-20 text-sm resize-none" />
-              <button type="submit" className="w-full p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">운동 완료 저장하기 🔥</button>
+            <form onSubmit={handleSaveWorkout} style={{ background: '#fff', padding: '15px', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#2e7d32', fontSize: '13px' }}>💪 운동 기록 (하루 최대 1회 인증)</h4>
+              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #a5d6a7', marginBottom: '10px', fontSize: '13px', boxSizing: 'border-box' }} />
+              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #a5d6a7', marginBottom: '10px', fontSize: '13px', boxSizing: 'border-box' }} />
+              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid #a5d6a7', marginBottom: '10px', height: '60px', fontSize: '13px', resize: 'none', boxSizing: 'border-box' }} />
+              <button type="submit" style={{ width: '100%', padding: '12px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>운동 완료 저장하기 🔥</button>
             </form>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div>
-            <h2 className="text-xl font-black mb-3">⚙️ 설정 및 앱 관리</h2>
-            <p className="text-gray-600 text-xs mb-4">로그인 계정: <b>{currentUser.email}</b></p>
+            <h3 style={{ fontSize: '16px', marginBottom: '10px' }}>⚙️ 설정 및 앱 관리</h3>
+            <p style={{ color: '#555', fontSize: '12px', marginBottom: '15px' }}>로그인 계정: <b>{currentUser.email}</b></p>
             
-            <div className="my-5 p-5 bg-cyan-50 rounded-2xl border border-cyan-200">
-              <p className="m-0 mb-3 text-sm font-bold text-cyan-900">📱 스마트폰 홈 화면에 앱 설치하기 (PWA)</p>
-              <button onClick={handleInstallClick} className="p-3 bg-teal-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm">앱 설치하기 / 홈에 추가</button>
+            <div style={{ marginBottom: '20px', padding: '15px', background: '#e0f7fa', borderRadius: '16px', border: '1px solid #b2dfdb' }}>
+              <p style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 'bold', color: '#00695c' }}>📱 스마트폰 홈 화면에 앱 설치하기</p>
+              <button onClick={handleInstallClick} style={{ padding: '12px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '13px' }}>앱 설치하기 / 홈에 추가</button>
             </div>
 
-            <button onClick={handleLogout} className="p-4 bg-rose-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm hover:bg-rose-700 transition">로그아웃 🚪</button>
+            <button onClick={handleLogout} style={{ padding: '12px', background: '#d32f2f', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '13px' }}>로그아웃 🚪</button>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-200 flex justify-around py-3 z-40 shadow-lg">
+      <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '400px', background: '#fff', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-around', padding: '10px 0', zIndex: 40, boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
         {[['home', '🏠 홈'], ['calendar', '📅 캘린더'], ['record', '📝 기록'], ['settings', '⚙️ 설정']].map(([tab, label]) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`bg-transparent border-none cursor-pointer text-xs font-bold ${activeTab === tab ? 'text-teal-600 scale-105' : 'text-gray-400'}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', color: activeTab === tab ? '#00838f' : '#888' }}>
             {label}
           </button>
         ))}
