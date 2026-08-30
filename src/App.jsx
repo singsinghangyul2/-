@@ -956,7 +956,7 @@ export default function App() {
                       borderRadius: '10px',
                       border: '1px solid #E2E8F0',
                       padding: '6px 2px',
-                      background,
+                      background: bg
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
