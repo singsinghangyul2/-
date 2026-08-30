@@ -1520,6 +1520,7 @@ export default function App() {
       </main>
 
       {/* ================== 날짜 상세 모달 ================== */}
+            {/* ================== 날짜 상세 모달 ================== */}
       {selectedDateForDetail && (
         <div
           onClick={() => setSelectedDateForDetail(null)}
@@ -1545,38 +1546,7 @@ export default function App() {
               padding: '16px',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px',
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: '14px',
-                  fontWeight: '900',
-                  color: '#2D3748',
-                }}
-              >
-                {selectedDateForDetail}
-              </h3>
-              <button
-                onClick={() => setSelectedDateForDetail(null)}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 내 기록 */}
+            {/* 내 기록 카드 */}
             <div
               style={{
                 border: '1px solid #E2E8F0',
@@ -1694,13 +1664,12 @@ export default function App() {
               )}
             </div>
 
-            {/* 파트너 기록 */}
+            {/* 파트너 기록 카드 */}
             <div
               style={{
                 border: '1px solid #E2E8F0',
                 borderRadius: '12px',
                 padding: '10px',
-                marginBottom: '4px',
               }}
             >
               <h4
@@ -1799,8 +1768,8 @@ export default function App() {
               )}
             </div>
           </div>
-        
-      }
+        </div>
+      )}
 
       {/* ================== 사진 확대 모달 ================== */}
       {modalImageSrc && (
@@ -1888,4 +1857,4 @@ export default function App() {
       </nav>
     </div>
   );
-}        
+}
