@@ -4,7 +4,8 @@ import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
-  getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, query, where, getDocs 
+  getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, query, where, getDocs, deleteDoc, 
+  doc as firestoreDoc
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -48,6 +49,9 @@ export default function App() {
   const [penalties, setPenalties] = useState([]);
 
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+
+  // 상세보기 모달 상태
+  const [selectedRecordForDetail, setSelectedRecordForDetail] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -96,31 +100,32 @@ export default function App() {
     return () => unsubscribe();
   }, [currentUser, sanitizedMyEmailKey, sanitizedPartnerEmailKey, pokeCount, partnerName]);
 
-  useEffect(() => {
+  const fetchRecords = async () => {
     if (!currentUser) return;
-    const fetchRecords = async () => {
-      try {
-        const myQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
-        const mySnap = await getDocs(myQ);
-        const myList = [];
-        mySnap.forEach((docSnap) => myList.push({ id: docSnap.id, ...docSnap.data() }));
-        setMyRecords(myList);
+    try {
+      const myQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
+      const mySnap = await getDocs(myQ);
+      const myList = [];
+      mySnap.forEach((docSnap) => myList.push({ id: docSnap.id, ...docSnap.data() }));
+      setMyRecords(myList);
 
-        const partnerQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', partnerEmail));
-        const partnerSnap = await getDocs(partnerQ);
-        const partnerList = [];
-        partnerSnap.forEach((docSnap) => partnerList.push({ id: docSnap.id, ...docSnap.data() }));
-        setPartnerRecords(partnerList);
+      const partnerQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', partnerEmail));
+      const partnerSnap = await getDocs(partnerQ);
+      const partnerList = [];
+      partnerSnap.forEach((docSnap) => partnerList.push({ id: docSnap.id, ...docSnap.data() }));
+      setPartnerRecords(partnerList);
 
-        const pQuery = query(collection(db, 'penalties'), where('ownerEmail', '==', currentUser.email));
-        const pSnapshot = await getDocs(pQuery);
-        const pList = [];
-        pSnapshot.forEach((docSnap) => pList.push(docSnap.data()));
-        setPenalties(pList);
-      } catch (e) {
-        console.error("Fetch error:", e);
-      }
-    };
+      const pQuery = query(collection(db, 'penalties'), where('ownerEmail', '==', currentUser.email));
+      const pSnapshot = await getDocs(pQuery);
+      const pList = [];
+      pSnapshot.forEach((docSnap) => pList.push(docSnap.data()));
+      setPenalties(pList);
+    } catch (e) {
+      console.error("Fetch error:", e);
+    }
+  };
+
+  useEffect(() => {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
@@ -183,8 +188,21 @@ export default function App() {
       alert('🥗 식단 기록이 저장되었습니다!');
       setDietMemo('');
       setDietPhotoUrl('');
+      fetchRecords();
     } catch (err) {
       alert('저장 실패: ' + err.message);
+    }
+  };
+
+  const handleDeleteRecord = async (recordId) => {
+    if (!window.confirm('정말 이 기록을 삭제하시겠습니까?')) return;
+    try {
+      await deleteDoc(firestoreDoc(db, 'dietCheckins', recordId));
+      alert('기록이 삭제되었습니다.');
+      setSelectedRecordForDetail(null);
+      fetchRecords();
+    } catch (err) {
+      alert('삭제 실패: ' + err.message);
     }
   };
 
@@ -343,7 +361,7 @@ export default function App() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                 {Array.from({ length: firstDay }).map((_, idx) => (
-                  <div key={`empty-${idx}`} style={{ minHeight: '92px', background: '#F7FAFC', borderRadius: '12px' }}></div>
+                  <div key={`empty-${idx}`} style={{ minHeight: '74px', background: '#F7FAFC', borderRadius: '12px' }}></div>
                 ))}
 
                 {Array.from({ length: daysInMonth }).map((_, idx) => {
@@ -356,15 +374,26 @@ export default function App() {
                   const partnerRec = partnerRecords.find(r => r.targetDate === dateStr);
 
                   return (
-                    <div key={dateStr} style={{ minHeight: '92px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '12px', padding: '4px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '900', color: '#008B8B', marginBottom: '4px', textAlign: 'center' }}>{dayNum}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '9px', fontWeight: '900' }}>
-                        <div style={{ padding: '2px 2px', borderRadius: '6px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div key={dateStr} style={{ minHeight: '74px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '12px', padding: '3px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '900', color: '#008B8B', marginBottom: '2px', textAlign: 'center' }}>{dayNum}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '9px', fontWeight: '900' }}>
+                        
+                        {/* 내 기록 클릭 시 상세 모달 오픈 */}
+                        <div 
+                          onClick={() => myRec && setSelectedRecordForDetail({ ...myRec, writer: '내 기록' })}
+                          style={{ padding: '1px 2px', borderRadius: '4px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: myRec ? 'pointer' : 'default' }}
+                        >
                           나:{myRec ? (myRec.status === '성공' ? '✅' : myRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
-                        <div style={{ padding: '2px 2px', borderRadius: '6px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+
+                        {/* 상대방 기록 클릭 시 상세 모달 오픈 */}
+                        <div 
+                          onClick={() => partnerRec && setSelectedRecordForDetail({ ...partnerRec, writer: `${partnerName} 기록` })}
+                          style={{ padding: '1px 2px', borderRadius: '4px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: partnerRec ? 'pointer' : 'default' }}
+                        >
                           {partnerName}:{partnerRec ? (partnerRec.status === '성공' ? '✅' : partnerRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
+
                       </div>
                     </div>
                   );
@@ -385,22 +414,63 @@ export default function App() {
               </div>
 
               <form onSubmit={handleSaveDiet} style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '6px' }}>
-                <h4 style={{ margin: 0, color: '#FF7F50', fontWeight: '900', fontSize: '12px' }}>🥗 식단 인증 기록</h4>
-                <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #B2DFDB', fontWeight: 'bold', fontSize: '12px', background: '#F8FBFB', color: '#2D3748', outline: 'none' }}>
-                  <option value="성공">성공 완료! ✅</option>
-                  <option value="실패">아쉬운 실패 ❌</option>
-                  <option value="야자수 데이">야자수 데이 🌴 (달콤한 치팅)</option>
-                </select>
+                <h4 style={{ margin: 0, color: '#FF7F50', fontWeight: '900', fontSize: '12px' }}>🥗 식단 인증 상태 선택</h4>
+                
+                {/* 버튼형 라디오 선택 UI */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {[
+                    ['성공', '✅ 성공', '#008B8B', '#E0F2F1'],
+                    ['실패', '❌ 실패', '#E53E3E', '#FFEBEE'],
+                    ['야자수 데이', '🌴 야자수 데이', '#D97706', '#FFF8E1']
+                  ].map(([val, label, activeColor, activeBg]) => {
+                    const isSelected = dietStatus === val;
+                    return (
+                      <button
+                        type="button"
+                        key={val}
+                        onClick={() => setDietStatus(val)}
+                        style={{
+                          flex: 1,
+                          padding: '12px 6px',
+                          borderRadius: '14px',
+                          border: isSelected ? `2px solid ${activeColor}` : '1px solid #E0F2F1',
+                          background: isSelected ? activeBg : '#F8FBFB',
+                          color: isSelected ? activeColor : '#718096',
+                          fontWeight: '900',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <textarea placeholder="식단 메모 입력 (예: 상큼한 아보카도 샐러드 🥗)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: '1px solid #B2DFDB', height: '80px', fontSize: '12px', resize: 'none', background: '#F8FBFB', fontWeight: '500', boxSizing: 'border-box', outline: 'none' }} />
                 
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '900', color: '#718096', display: 'block', marginBottom: '6px' }}>📸 인증 사진 파일 업로드</label>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', padding: '10px', borderRadius: '16px', border: '1px solid #B2DFDB', fontSize: '11px', background: '#F8FBFB', fontWeight: 'bold', boxSizing: 'border-box' }} />
+                  <label style={{ fontSize: '11px', fontWeight: '900', color: '#718096', display: 'block', marginBottom: '6px' }}>📸 인증 사진 업로드 및 확인</label>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ width: '100%', padding: '10px', borderRadius: '16px', border: '1px solid #B2DFDB', fontSize: '11px', background: '#F8FBFB', fontWeight: 'bold', boxSizing: 'border-box', marginBottom: '8px' }} />
                   {uploadingImage && <p style={{ fontSize: '11px', color: '#008B8B', marginTop: '4px', fontWeight: 'bold' }}>열대 바다로 사진 전송 중... 🌊</p>}
-                  {dietPhotoUrl && <p style={{ fontSize: '11px', color: '#32CD32', marginTop: '4px', fontWeight: '900' }}>✅ 사진 업로드 완료!</p>}
+                  
+                  {/* 업로드된 사진 미리보기 및 삭제 기능 */}
+                  {dietPhotoUrl && (
+                    <div style={{ position: 'relative', display: 'inline-block', marginTop: '6px' }}>
+                      <img src={dietPhotoUrl} alt="업로드된 인증샷" style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '12px', border: '2px solid #008B8B' }} />
+                      <button 
+                        type="button" 
+                        onClick={() => setDietPhotoUrl('')} 
+                        style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#E53E3E', color: '#FFFFFF', border: 'none', borderRadius: '50%', width: '22px', height: '22px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <button type="submit" style={{ width: '100%', padding: '14px', background: '#008B8B', color: '#FFFFFF', borderRadius: '16px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(0, 139, 139, 0.25)' }}>식단 저장하기 🌴</button>
+                <button type="submit" style={{ width: '100%', padding: '14px', background: '#008B8B', color: '#FFFFFF', borderRadius: '16px', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(0, 139, 139, 0.25)', marginTop: '4px' }}>식단 저장하기 🌴</button>
               </form>
             </div>
 
@@ -429,6 +499,40 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* 날짜 기록 상세보기 및 삭제 모달 */}
+      {selectedRecordForDetail && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '340px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '900', color: '#008B8B' }}>{selectedRecordForDetail.writer} ({selectedRecordForDetail.targetDate})</h3>
+              <button onClick={() => setSelectedRecordForDetail(null)} style={{ background: 'transparent', border: 'none', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: '#A0AEC0' }}>✕</button>
+            </div>
+            
+            <div style={{ background: '#F8FBFB', padding: '14px', borderRadius: '16px', border: '1px solid #E0F2F1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <p style={{ margin: 0, fontSize: '12px', fontWeight: '900', color: '#2D3748' }}>상태: <span style={{ color: selectedRecordForDetail.status === '성공' ? '#008B8B' : selectedRecordForDetail.status === '야자수 데이' ? '#D97706' : '#E53E3E' }}>{selectedRecordForDetail.status}</span></p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568', fontWeight: '500' }}>메모: {selectedRecordForDetail.memo || '작성된 메모가 없습니다.'}</p>
+            </div>
+
+            {selectedRecordForDetail.photoUrls && selectedRecordForDetail.photoUrls.length > 0 && (
+              <div>
+                <p style={{ fontSize: '11px', fontWeight: '900', color: '#718096', marginBottom: '6px' }}>📸 인증 사진</p>
+                <img src={selectedRecordForDetail.photoUrls[0]} alt="인증샷" style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '16px', border: '1px solid #E0F2F1' }} />
+              </div>
+            )}
+
+            {/* 내 기록일 경우에만 삭제 버튼 노출 */}
+            {selectedRecordForDetail.ownerEmail === currentUser.email && (
+              <button 
+                onClick={() => handleDeleteRecord(selectedRecordForDetail.id)} 
+                style={{ width: '100%', padding: '12px', background: '#FFF5F5', color: '#E53E3E', border: '1px solid #FED7D7', borderRadius: '14px', fontWeight: '900', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}
+              >
+                이 기록 삭제하기 🗑️
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 하단 네비게이션 바 */}
       <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '420px', background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(10px)', borderTop: '1px solid #E0F2F1', display: 'flex', justifyContent: 'space-around', padding: '10px 0', zIndex: 900, boxShadow: '0 -10px 25px rgba(0,0,0,0.05)', borderTopLeftRadius: '28px', borderTopRightRadius: '28px' }}>
