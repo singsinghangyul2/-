@@ -65,8 +65,8 @@ export default function App() {
     email: user?.email || '',
     coupleId: coupleId
   };
-  const partnerEmail = currentUser.email === 'seunghyun@couple.com' ? 'sangoni@couple.com' : 'seunghyun@couple.com';
-  const partnerName = currentUser.email === 'seunghyun@couple.com' ? '상오니' : '승현';
+  const partnerEmail = currentUser.email === 'ysh94335@gmail.com' ? 'sang5ny@gmail.com' : 'ysh94335@gmail.com';
+  const partnerName = currentUser.email === 'ysh94335@gmail.com' ? '상오니' : '승현';
 
   // 푸켓 여행일 설정 (기본 D-Day 계산용)
   const travelDate = '2026-12-31';
