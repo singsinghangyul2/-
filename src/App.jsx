@@ -65,8 +65,14 @@ export default function App() {
     email: user?.email || '',
     coupleId: coupleId
   };
-  const partnerEmail = currentUser.email === 'ysh94335@gmail.com' ? 'sang5ny@gmail.com' : 'ysh94335@gmail.com';
-  const partnerName = currentUser.email === 'ysh94335@gmail.com' ? '상오니' : '승현';
+// 현재 로그인된 유저의 이메일을 안전하게 가져와서 소문자로 변환
+  const userEmail = currentUser?.email ? currentUser.email.trim().toLowerCase() : '';
+
+  // 승현님 기준 이메일 판별
+  const isSeungHyun = userEmail === 'ysh94335@gmail.com';
+
+  const partnerEmail = isSeungHyun ? 'sang5ny@gmail.com' : 'ysh94335@gmail.com';
+  const partnerName = isSeungHyun ? '상오니' : '승현';
 
   // 푸켓 여행일 설정 (기본 D-Day 계산용)
   const travelDate = '2026-12-31';
