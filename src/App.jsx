@@ -1,37 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
 } from 'firebase/auth';
-import { 
-  getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, query, where, getDocs, deleteDoc, 
-  doc as firestoreDoc
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc as firestoreDoc,
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDyrfuOttJHRI-8BgQvpIlnJtEsbIAW7jo",
-  authDomain: "couple-diet-1012.firebaseapp.com",
-  projectId: "couple-diet-1012",
-  storageBucket: "couple-diet-1012.firebasestorage.app",
-  messagingSenderId: "487330133450",
-  appId: "1:487330133450:web:e03a5c60538ebcb9964b33"
+  apiKey: 'AIzaSyDyrfuOttJHRI-8BgQvpIlnJtEsbIAW7jo',
+  authDomain: 'couple-diet-1012.firebaseapp.com',
+  projectId: 'couple-diet-1012',
+  storageBucket: 'couple-diet-1012.firebasestorage.app',
+  messagingSenderId: '487330133450',
+  appId: '1:487330133450:web:e03a5c60538ebcb9964b33',
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const sanitizeEmail = (email) => email ? email.trim().toLowerCase().replace(/\./g, '_') : '';
+const sanitizeEmail = (email) =>
+  email ? email.trim().toLowerCase().replace(/\./g, '_') : '';
 
 // 통계 한 줄(라벨-값)을 표시하는 작은 재사용 컴포넌트
 function StatRow({ label, value, valueColor }) {
   return (
-    <div style={{ 
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-      padding: '7px 0', borderBottom: '1px solid #F1F5F9' 
-    }}>
-      <span style={{ fontSize: '11px', color: '#718096', fontWeight: '600' }}>{label}</span>
-      <span style={{ fontSize: '12px', fontWeight: '900', color: valueColor || '#2D3748' }}>{value}</span>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '7px 0',
+        borderBottom: '1px solid #F1F5F9',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '11px',
+          color: '#718096',
+          fontWeight: '600',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: '12px',
+          fontWeight: '900',
+          color: valueColor || '#2D3748',
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -39,20 +75,24 @@ function StatRow({ label, value, valueColor }) {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+
   const [activeTab, setActiveTab] = useState('home');
 
   const [pokeCount, setPokeCount] = useState(0);
   const [alertMessage, setAlertMessage] = useState('');
 
-  const [targetDate, setTargetDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
-  const [dietStatus, setDietStatus] = useState('성공'); 
+  const [targetDate, setTargetDate] = useState(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }),
+  );
+  const [dietStatus, setDietStatus] = useState('성공');
   const [dietMemo, setDietMemo] = useState('');
   const [uploadingDietImage, setUploadingDietImage] = useState(false);
   const [dietPhotoUrls, setDietPhotoUrls] = useState([]);
-  
+
   const [workoutType, setWorkoutType] = useState('헬스/피트니스');
   const [durationMinutes, setDurationMinutes] = useState('30');
   const [workoutMemo, setWorkoutMemo] = useState('');
@@ -65,10 +105,11 @@ export default function App() {
 
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   const [selectedDateForDetail, setSelectedDateForDetail] = useState(null);
-  
+
   const [modalImageSrc, setModalImageSrc] = useState(null);
   const [gallerySubTab, setGallerySubTab] = useState('all');
 
+  // -------------------- 인증 상태 --------------------
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -77,7 +118,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const userEmail = currentUser?.email ? currentUser.email.trim().toLowerCase() : '';
+  const userEmail = currentUser?.email
+    ? currentUser.email.trim().toLowerCase()
+    : '';
   const isSeungHyun = userEmail === '********@*****.***';
   const partnerEmail = isSeungHyun ? '*******@*****.***' : '********@*****.***';
   const partnerName = isSeungHyun ? '상오니' : '승현';
@@ -86,19 +129,24 @@ export default function App() {
   const sanitizedMyEmailKey = sanitizeEmail(currentUser?.email);
   const sanitizedPartnerEmailKey = sanitizeEmail(partnerEmail);
 
+  // -------------------- 디데이 계산 --------------------
   const calculateDday = () => {
     const target = new Date('2026-12-31T00:00:00+09:00');
-    const todayStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+    const todayStr = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Seoul',
+    });
     const today = new Date(todayStr);
     const diffTime = target - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
+  // -------------------- 응원(찌르기) 실시간 --------------------
   useEffect(() => {
     if (!currentUser) return;
+
     const docRef = doc(db, 'challenges', 'couple_poke_data');
-    
+
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -109,35 +157,52 @@ export default function App() {
         }
         setPokeCount(currentMyPoke);
       } else {
-        setDoc(docRef, { [sanitizedMyEmailKey]: 0, [sanitizedPartnerEmailKey]: 0 });
+        setDoc(docRef, {
+          [sanitizedMyEmailKey]: 0,
+          [sanitizedPartnerEmailKey]: 0,
+        });
       }
     });
 
     return () => unsubscribe();
   }, [currentUser, sanitizedMyEmailKey, sanitizedPartnerEmailKey, pokeCount, partnerName]);
 
+  // -------------------- 기록 불러오기 --------------------
   const fetchRecords = async () => {
     if (!currentUser) return;
     try {
-      const myQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
+      const myQ = query(
+        collection(db, 'dietCheckins'),
+        where('ownerEmail', '==', currentUser.email),
+      );
       const mySnap = await getDocs(myQ);
       const myList = [];
-      mySnap.forEach((docSnap) => myList.push({ id: docSnap.id, ...docSnap.data() }));
+      mySnap.forEach((docSnap) =>
+        myList.push({ id: docSnap.id, ...docSnap.data() }),
+      );
       setMyRecords(myList);
 
-      const partnerQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', partnerEmail));
+      const partnerQ = query(
+        collection(db, 'dietCheckins'),
+        where('ownerEmail', '==', partnerEmail),
+      );
       const partnerSnap = await getDocs(partnerQ);
       const partnerList = [];
-      partnerSnap.forEach((docSnap) => partnerList.push({ id: docSnap.id, ...docSnap.data() }));
+      partnerSnap.forEach((docSnap) =>
+        partnerList.push({ id: docSnap.id, ...docSnap.data() }),
+      );
       setPartnerRecords(partnerList);
 
-      const pQuery = query(collection(db, 'penalties'), where('ownerEmail', '==', currentUser.email));
+      const pQuery = query(
+        collection(db, 'penalties'),
+        where('ownerEmail', '==', currentUser.email),
+      );
       const pSnapshot = await getDocs(pQuery);
       const pList = [];
       pSnapshot.forEach((docSnap) => pList.push(docSnap.data()));
       setPenalties(pList);
     } catch (e) {
-      console.error("Fetch error:", e);
+      console.error('Fetch error:', e);
     }
   };
 
@@ -145,10 +210,11 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
+  // -------------------- 이미지 처리 공통 함수 --------------------
   const processImageFiles = (files, setUploading, setUrlsState, currentUrls) => {
     if (!files || files.length === 0) return;
     setUploading(true);
-    
+
     const newFiles = Array.from(files);
     let processedCount = 0;
     const results = [...currentUrls];
@@ -204,13 +270,24 @@ export default function App() {
   };
 
   const handleDietImagesUpload = (e) => {
-    processImageFiles(e.target.files, setUploadingDietImage, setDietPhotoUrls, dietPhotoUrls);
+    processImageFiles(
+      e.target.files,
+      setUploadingDietImage,
+      setDietPhotoUrls,
+      dietPhotoUrls,
+    );
   };
 
   const handleWorkoutImagesUpload = (e) => {
-    processImageFiles(e.target.files, setUploadingWorkoutImage, setWorkoutPhotoUrls, workoutPhotoUrls);
+    processImageFiles(
+      e.target.files,
+      setUploadingWorkoutImage,
+      setWorkoutPhotoUrls,
+      workoutPhotoUrls,
+    );
   };
 
+  // -------------------- 응원 보내기 --------------------
   const handlePoke = async () => {
     try {
       const docRef = doc(db, 'challenges', 'couple_poke_data');
@@ -219,13 +296,18 @@ export default function App() {
       if (snap.exists()) {
         currentVal = snap.data()[sanitizedPartnerEmailKey] || 0;
       }
-      await setDoc(docRef, { [sanitizedPartnerEmailKey]: currentVal + 1 }, { merge: true });
+      await setDoc(
+        docRef,
+        { [sanitizedPartnerEmailKey]: currentVal + 1 },
+        { merge: true },
+      );
       alert(`✨ ${partnerName}님에게 응원의 파도를 보냈어요! 🌊`);
     } catch (error) {
       alert('오류 발생: ' + error.message);
     }
   };
 
+  // -------------------- 식단 저장 --------------------
   const handleSaveDiet = async (e) => {
     e.preventDefault();
     try {
@@ -241,7 +323,7 @@ export default function App() {
         durationMinutes: '',
         workoutMemo: '',
         workoutPhotoUrls: [],
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
       alert('🥗 식단 기록이 저장되었습니다!');
       setDietMemo('');
@@ -252,6 +334,7 @@ export default function App() {
     }
   };
 
+  // -------------------- 운동 저장 --------------------
   const handleSaveWorkout = async (e) => {
     e.preventDefault();
     try {
@@ -267,7 +350,7 @@ export default function App() {
         durationMinutes: durationMinutes,
         workoutMemo: workoutMemo,
         workoutPhotoUrls: workoutPhotoUrls,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
       alert('💪 운동 기록이 저장되었습니다!');
       setWorkoutMemo('');
@@ -278,6 +361,7 @@ export default function App() {
     }
   };
 
+  // -------------------- 기록 삭제 --------------------
   const handleDeleteRecord = async (recordId) => {
     if (!window.confirm('정말 이 기록을 삭제하시겠습니까?')) return;
     try {
@@ -290,6 +374,7 @@ export default function App() {
     }
   };
 
+  // -------------------- 로그인/로그아웃 --------------------
   const handleAuth = async (e) => {
     e.preventDefault();
     try {
@@ -303,10 +388,15 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => { await signOut(auth); };
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
 
-  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+  // -------------------- 달력 관련 유틸 --------------------
+  const getDaysInMonth = (year, month) =>
+    new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) =>
+    new Date(year, month, 1).getDay();
 
   const changeMonth = (direction) => {
     const newDate = new Date(currentMonthDate);
@@ -314,9 +404,21 @@ export default function App() {
     setCurrentMonthDate(newDate);
   };
 
+  // -------------------- 로딩 / 로그인 화면 --------------------
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F4FBFB', color: '#008B8B', fontWeight: 'bold', fontSize: '15px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          background: '#F4FBFB',
+          color: '#008B8B',
+          fontWeight: 'bold',
+          fontSize: '15px',
+        }}
+      >
         🌴 푸켓 바다 불러오는 중...
       </div>
     );
@@ -324,44 +426,153 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div style={{ maxWidth: '400px', margin: '40px auto', padding: '32px', background: '#FFFFFF', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0, 139, 139, 0.1)', border: '1px solid #E0F2F1' }}>
+      <div
+        style={{
+          maxWidth: '400px',
+          margin: '40px auto',
+          padding: '32px',
+          background: '#FFFFFF',
+          borderRadius: '28px',
+          boxShadow: '0 20px 40px rgba(0, 139, 139, 0.1)',
+          border: '1px solid #E0F2F1',
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <span style={{ fontSize: '48px' }}>🍍</span>
-          <h2 style={{ color: '#008B8B', fontSize: '24px', fontWeight: '900', margin: '12px 0 4px 0' }}>푸켓행 바디 챌린지</h2>
-          <p style={{ color: '#FF7F50', fontSize: '13px', fontWeight: 'bold', margin: 0 }}>✨ 승현 & 상오니의 달콤살벌 커플 다이어트</p>
+          <h2
+            style={{
+              color: '#008B8B',
+              fontSize: '24px',
+              fontWeight: '900',
+              margin: '12px 0 4px 0',
+            }}
+          >
+            푸켓행 바디 챌린지
+          </h2>
+          <p
+            style={{
+              color: '#FF7F50',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              margin: 0,
+            }}
+          >
+            ✨ 승현 & 상오니의 달콤살벌 커플 다이어트
+          </p>
         </div>
-        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #E0F2F1', outline: 'none', fontSize: '14px', background: '#F8FBFB', boxSizing: 'border-box', fontWeight: '500' }} />
-          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1px solid #E0F2F1', outline: 'none', fontSize: '14px', background: '#F8FBFB', boxSizing: 'border-box', fontWeight: '500' }} />
-          <button type="submit" style={{ width: '100%', padding: '16px', background: '#008B8B', color: '#FFFFFF', borderRadius: '16px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '14px', boxShadow: '0 8px 20px rgba(0, 139, 139, 0.25)', marginTop: '8px' }}>
+        <form
+          onSubmit={handleAuth}
+          style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+        >
+          <input
+            type="email"
+            placeholder="이메일 주소"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{
+              width: '100%',
+              padding: '16px',
+              borderRadius: '16px',
+              border: '1px solid #E0F2F1',
+              outline: 'none',
+              fontSize: '14px',
+              background: '#F8FBFB',
+              boxSizing: 'border-box',
+              fontWeight: '500',
+            }}
+          />
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{
+              width: '100%',
+              padding: '16px',
+              borderRadius: '16px',
+              border: '1px solid #E0F2F1',
+              outline: 'none',
+              fontSize: '14px',
+              background: '#F8FBFB',
+              boxSizing: 'border-box',
+              fontWeight: '500',
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: '#008B8B',
+              color: '#FFFFFF',
+              borderRadius: '16px',
+              fontWeight: 'bold',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              boxShadow: '0 8px 20px rgba(0, 139, 139, 0.25)',
+              marginTop: '8px',
+            }}
+          >
             {isSignUp ? '🌴 가입하고 떠나기' : '🌊 로그인하기'}
           </button>
         </form>
-        <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'transparent', border: 'none', color: '#FF7F50', marginTop: '20px', width: '100%', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>
+        <button
+          onClick={() => setIsSignUp(!isSignUp)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#FF7F50',
+            marginTop: '20px',
+            width: '100%',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontSize: '12px',
+          }}
+        >
           {isSignUp ? '이미 계정이 있으신가요? 로그인' : '처음이신가요? 회원가입하기'}
         </button>
       </div>
     );
   }
 
-  const totalPenalty = penalties.reduce((acc, cur) => acc + (cur.amount || 0), 0);
-  
+  // -------------------- 로그인 이후 공통 계산 --------------------
+  const totalPenalty = penalties.reduce(
+    (acc, cur) => acc + (cur.amount || 0),
+    0,
+  );
+
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
-  const myRecordForSelectedDate = myRecords.find(r => r.targetDate === selectedDateForDetail);
-  const partnerRecordForSelectedDate = partnerRecords.find(r => r.targetDate === selectedDateForDetail);
+  const myRecordForSelectedDate = myRecords.find(
+    (r) => r.targetDate === selectedDateForDetail,
+  );
+  const partnerRecordForSelectedDate = partnerRecords.find(
+    (r) => r.targetDate === selectedDateForDetail,
+  );
 
-  const allCombinedRecords = [...myRecords, ...partnerRecords].sort((a, b) => {
-    return new Date(b.targetDate || b.createdAt) - new Date(a.targetDate || a.createdAt);
+  const allCombinedRecords = [...myRecords, ...partnerRecords].sort(
+    (a, b) =>
+      new Date(b.targetDate || b.createdAt) -
+      new Date(a.targetDate || a.createdAt),
+  );
+
+  const todayStr = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Seoul',
   });
 
-  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-
   const getTodayDietStatus = (records) => {
-    const rec = records.find(r => r.targetDate === todayStr && r.status && r.status !== '운동완료');
+    const rec = records.find(
+      (r) =>
+        r.targetDate === todayStr &&
+        r.status &&
+        r.status !== '운동완료',
+    );
     return rec ? rec.status : '미입력';
   };
   const myTodayDiet = getTodayDietStatus(myRecords);
@@ -373,11 +584,13 @@ export default function App() {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
-  const countWeeklyWorkouts = (records) => records.filter(r => {
-    if (!r.workoutType) return false;
-    const d = new Date(r.targetDate);
-    return d >= weekStart && d <= weekEnd;
-  }).length;
+  const countWeeklyWorkouts = (records) =>
+    records.filter((r) => {
+      if (!r.workoutType) return false;
+      const d = new Date(r.targetDate);
+      return d >= weekStart && d <= weekEnd;
+    }).length;
+
   const myWeeklyWorkoutCount = countWeeklyWorkouts(myRecords);
   const partnerWeeklyWorkoutCount = countWeeklyWorkouts(partnerRecords);
 
@@ -386,7 +599,7 @@ export default function App() {
     let cursor = new Date(todayStr);
     while (true) {
       const cursorStr = cursor.toLocaleDateString('en-CA');
-      const rec = records.find(r => r.targetDate === cursorStr);
+      const rec = records.find((r) => r.targetDate === cursorStr);
       if (rec && rec.status === '성공') {
         streak++;
         cursor.setDate(cursor.getDate() - 1);
@@ -394,8 +607,11 @@ export default function App() {
     }
     return streak;
   };
+
   const myStreak = calcStreak(myRecords);
   const partnerStreak = calcStreak(partnerRecords);
+
+  // -------------------- 메인 렌더 --------------------
   return (
     <div
       style={{
@@ -433,7 +649,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ⬆⬆⬆ 상단 헤더 – 기능은 유지, 디자인만 변경 ⬆⬆⬆ */}
+      {/* 상단 헤더 */}
       <header
         style={{
           padding: '20px 24px 16px 24px',
@@ -511,7 +727,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 메인 컨텐츠 영역 */}
+      {/* 메인 컨텐츠 */}
       <main
         style={{
           padding: '16px',
@@ -520,7 +736,7 @@ export default function App() {
           gap: '16px',
         }}
       >
-        {/* ================== HOME 탭 (디자인 변경) ================== */}
+        {/* HOME 탭 */}
         {activeTab === 'home' && (
           <>
             {/* D-day 카드 */}
@@ -566,7 +782,7 @@ export default function App() {
               </p>
             </div>
 
-            {/* 오늘의 우리 – 통계 카드 */}
+            {/* 오늘의 우리 */}
             <h3
               style={{
                 fontSize: '15px',
@@ -661,7 +877,9 @@ export default function App() {
                   label="오늘 식단"
                   value={partnerTodayDiet}
                   valueColor={
-                    partnerTodayDiet === '성공' ? '#008B8B' : '#A0AEC0'
+                    partnerTodayDiet === '성공'
+                      ? '#008B8B'
+                      : '#A0AEC0'
                   }
                 />
                 <StatRow
@@ -675,7 +893,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 빠른 기록 – record 탭으로 이동 */}
+            {/* 빠른 기록 버튼 */}
             <div
               style={{
                 background: '#FFFFFF',
@@ -730,7 +948,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 찌르기(응원) 카드 – 기존 기능 유지 */}
+            {/* 찌르기(응원) 카드 */}
             <div
               style={{
                 background: '#FFFFFF',
@@ -847,9 +1065,15 @@ export default function App() {
           </>
         )}
 
-        {/* ================== CALENDAR 탭 (기존 기능 그대로) ================== */}
+        {/* CALENDAR 탭 */}
         {activeTab === 'calendar' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
             <div
               style={{
                 display: 'flex',
@@ -892,6 +1116,7 @@ export default function App() {
               </button>
             </div>
 
+            {/* 요일 헤더 */}
             <div
               style={{
                 display: 'grid',
@@ -907,7 +1132,12 @@ export default function App() {
                   key={d}
                   style={{
                     fontWeight: '700',
-                    color: d === '일' ? '#E53E3E' : d === '토' ? '#3182CE' : '#4A5568',
+                    color:
+                      d === '일'
+                        ? '#E53E3E'
+                        : d === '토'
+                        ? '#3182CE'
+                        : '#4A5568',
                   }}
                 >
                   {d}
@@ -915,6 +1145,7 @@ export default function App() {
               ))}
             </div>
 
+            {/* 날짜 셀 */}
             <div
               style={{
                 display: 'grid',
@@ -925,13 +1156,22 @@ export default function App() {
               {Array.from({ length: firstDay }).map((_, i) => (
                 <div key={`empty-${i}`} />
               ))}
+
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1;
-                const dateStr = new Date(year, month, day)
-                  .toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-                const myRec = myRecords.find((r) => r.targetDate === dateStr);
+                const dateStr = new Date(
+                  year,
+                  month,
+                  day,
+                ).toLocaleDateString('en-CA', {
+                  timeZone: 'Asia/Seoul',
+                });
+
+                const myRec = myRecords.find(
+                  (r) => r.targetDate === dateStr,
+                );
                 const partnerRec = partnerRecords.find(
-                  (r) => r.targetDate === dateStr
+                  (r) => r.targetDate === dateStr,
                 );
 
                 const hasSuccess =
@@ -956,7 +1196,7 @@ export default function App() {
                       borderRadius: '10px',
                       border: '1px solid #E2E8F0',
                       padding: '6px 2px',
-                      background: bg
+                      background: bg,
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
@@ -974,7 +1214,13 @@ export default function App() {
                     >
                       {day}
                     </span>
-                    <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '2px',
+                        marginBottom: '2px',
+                      }}
+                    >
                       {hasSuccess && (
                         <span style={{ fontSize: '9px' }}>✅</span>
                       )}
@@ -1000,9 +1246,16 @@ export default function App() {
             </div>
           </div>
         )}
-        {/* ================== GALLERY 탭 (기존 기능 그대로) ================== */}
+
+        {/* GALLERY 탭 */}
         {activeTab === 'gallery' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
             <div style={{ display: 'flex', gap: '8px' }}>
               {['all', 'diet', 'workout'].map((key) => (
                 <button
@@ -1060,13 +1313,13 @@ export default function App() {
                     type: 'diet',
                     date: rec.targetDate,
                   }));
-                  const workoutImages = (rec.workoutPhotoUrls || []).map(
-                    (url) => ({
-                      url,
-                      type: 'workout',
-                      date: rec.targetDate,
-                    })
-                  );
+                  const workoutImages = (
+                    rec.workoutPhotoUrls || []
+                  ).map((url) => ({
+                    url,
+                    type: 'workout',
+                    date: rec.targetDate,
+                  }));
                   return [...dietImages, ...workoutImages];
                 })
                 .map((img, idx) => (
@@ -1118,10 +1371,16 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== RECORD 탭 (기존 기록 입력/목록) ================== */}
+        {/* RECORD 탭 */}
         {activeTab === 'record' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* 날짜 선택 및 상태 */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+            }}
+          >
+            {/* 날짜 + 식단 */}
             <div
               style={{
                 background: '#FFFFFF',
@@ -1165,7 +1424,13 @@ export default function App() {
                 >
                   식단 상태
                 </span>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginTop: '6px',
+                  }}
+                >
                   {['성공', '실패', '야자수 데이'].map((s) => (
                     <button
                       key={s}
@@ -1235,7 +1500,11 @@ export default function App() {
                   accept="image/*"
                   multiple
                   onChange={handleDietImagesUpload}
-                  style={{ display: 'block', marginTop: '4px', fontSize: '11px' }}
+                  style={{
+                    display: 'block',
+                    marginTop: '4px',
+                    fontSize: '11px',
+                  }}
                 />
                 {uploadingDietImage && (
                   <p style={{ fontSize: '11px', marginTop: '4px' }}>
@@ -1286,7 +1555,7 @@ export default function App() {
               </button>
             </div>
 
-            {/* 운동 기록 카드 */}
+            {/* 운동 기록 */}
             <div
               style={{
                 background: '#FFFFFF',
@@ -1392,7 +1661,11 @@ export default function App() {
                   accept="image/*"
                   multiple
                   onChange={handleWorkoutImagesUpload}
-                  style={{ display: 'block', marginTop: '4px', fontSize: '11px' }}
+                  style={{
+                    display: 'block',
+                    marginTop: '4px',
+                    fontSize: '11px',
+                  }}
                 />
                 {uploadingWorkoutImage && (
                   <p style={{ fontSize: '11px', marginTop: '4px' }}>
@@ -1445,9 +1718,15 @@ export default function App() {
           </div>
         )}
 
-        {/* ================== SETTINGS 탭 (간단 요약/벌금 등) ================== */}
+        {/* SETTINGS 탭 */}
         {activeTab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+          >
             <div
               style={{
                 background: '#FFFFFF',
@@ -1466,13 +1745,31 @@ export default function App() {
               >
                 요약 통계
               </h3>
-              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: '#4A5568',
+                }}
+              >
                 내 총 기록 수: {myRecords.length}개
               </p>
-              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: '#4A5568',
+                }}
+              >
                 파트너 기록 수: {partnerRecords.length}개
               </p>
-              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#4A5568' }}>
+              <p
+                style={{
+                  margin: '4px 0 0 0',
+                  fontSize: '12px',
+                  color: '#4A5568',
+                }}
+              >
                 누적 벌금: {totalPenalty.toLocaleString()}원
               </p>
             </div>
@@ -1495,7 +1792,13 @@ export default function App() {
               >
                 계정
               </h3>
-              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: '#4A5568',
+                }}
+              >
                 현재 로그인: {currentUser.email}
               </p>
               <button
@@ -1519,8 +1822,7 @@ export default function App() {
         )}
       </main>
 
-      {/* ================== 날짜 상세 모달 ================== */}
-            {/* ================== 날짜 상세 모달 ================== */}
+      {/* 날짜 상세 모달 */}
       {selectedDateForDetail && (
         <div
           onClick={() => setSelectedDateForDetail(null)}
@@ -1567,7 +1869,12 @@ export default function App() {
               </h4>
               {myRecordForSelectedDate ? (
                 <>
-                  <p style={{ margin: 0, fontSize: '12px' }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '12px',
+                    }}
+                  >
                     식단 상태: {myRecordForSelectedDate.status}
                   </p>
                   <p
@@ -1579,7 +1886,8 @@ export default function App() {
                   >
                     메모: {myRecordForSelectedDate.memo}
                   </p>
-                  {(myRecordForSelectedDate.photoUrls || []).length > 0 && (
+                  {(myRecordForSelectedDate.photoUrls || []).length >
+                    0 && (
                     <div
                       style={{
                         display: 'flex',
@@ -1588,31 +1896,38 @@ export default function App() {
                         marginTop: '6px',
                       }}
                     >
-                      {myRecordForSelectedDate.photoUrls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt=""
-                          style={{
-                            width: '60px',
-                            height: '60px',
-                            borderRadius: '6px',
-                            objectFit: 'cover',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => setModalImageSrc(url)}
-                        />
-                      ))}
+                      {myRecordForSelectedDate.photoUrls.map(
+                        (url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt=""
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '6px',
+                              objectFit: 'cover',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalImageSrc(url)}
+                          />
+                        ),
+                      )}
                     </div>
                   )}
                   {myRecordForSelectedDate.workoutType && (
-                    <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                    <p
+                      style={{
+                        margin: '4px 0 0 0',
+                        fontSize: '12px',
+                      }}
+                    >
                       운동: {myRecordForSelectedDate.workoutType} (
                       {myRecordForSelectedDate.durationMinutes}분)
                     </p>
                   )}
-                  {(myRecordForSelectedDate.workoutPhotoUrls || []).length >
-                    0 && (
+                  {(myRecordForSelectedDate.workoutPhotoUrls || [])
+                    .length > 0 && (
                     <div
                       style={{
                         display: 'flex',
@@ -1636,12 +1951,14 @@ export default function App() {
                             }}
                             onClick={() => setModalImageSrc(url)}
                           />
-                        )
+                        ),
                       )}
                     </div>
                   )}
                   <button
-                    onClick={() => handleDeleteRecord(myRecordForSelectedDate.id)}
+                    onClick={() =>
+                      handleDeleteRecord(myRecordForSelectedDate.id)
+                    }
                     style={{
                       marginTop: '8px',
                       padding: '6px 10px',
@@ -1658,7 +1975,13 @@ export default function App() {
                   </button>
                 </>
               ) : (
-                <p style={{ margin: 0, fontSize: '12px', color: '#A0AEC0' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    color: '#A0AEC0',
+                  }}
+                >
                   기록 없음
                 </p>
               )}
@@ -1684,7 +2007,12 @@ export default function App() {
               </h4>
               {partnerRecordForSelectedDate ? (
                 <>
-                  <p style={{ margin: 0, fontSize: '12px' }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '12px',
+                    }}
+                  >
                     식단 상태: {partnerRecordForSelectedDate.status}
                   </p>
                   <p
@@ -1696,8 +2024,8 @@ export default function App() {
                   >
                     메모: {partnerRecordForSelectedDate.memo}
                   </p>
-                  {(partnerRecordForSelectedDate.photoUrls || []).length >
-                    0 && (
+                  {(partnerRecordForSelectedDate.photoUrls || [])
+                    .length > 0 && (
                     <div
                       style={{
                         display: 'flex',
@@ -1721,14 +2049,21 @@ export default function App() {
                             }}
                             onClick={() => setModalImageSrc(url)}
                           />
-                        )
+                        ),
                       )}
                     </div>
                   )}
                   {partnerRecordForSelectedDate.workoutType && (
-                    <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
-                      운동: {partnerRecordForSelectedDate.workoutType} (
-                      {partnerRecordForSelectedDate.durationMinutes}분)
+                    <p
+                      style={{
+                        margin: '4px 0 0 0',
+                        fontSize: '12px',
+                      }}
+                    >
+                      운동:{' '}
+                      {partnerRecordForSelectedDate.workoutType} (
+                      {partnerRecordForSelectedDate.durationMinutes}
+                      분)
                     </p>
                   )}
                   {(partnerRecordForSelectedDate.workoutPhotoUrls || [])
@@ -1756,13 +2091,19 @@ export default function App() {
                             }}
                             onClick={() => setModalImageSrc(url)}
                           />
-                        )
+                        ),
                       )}
                     </div>
                   )}
                 </>
               ) : (
-                <p style={{ margin: 0, fontSize: '12px', color: '#A0AEC0' }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    color: '#A0AEC0',
+                  }}
+                >
                   기록 없음
                 </p>
               )}
@@ -1771,7 +2112,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================== 사진 확대 모달 ================== */}
+      {/* 사진 확대 모달 */}
       {modalImageSrc && (
         <div
           onClick={() => setModalImageSrc(null)}
@@ -1798,7 +2139,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================== 하단 네비게이션 바 ================== */}
+      {/* 하단 네비게이션 바 */}
       <nav
         style={{
           position: 'fixed',
