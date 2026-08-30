@@ -39,8 +39,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
 
   const [pokeCount, setPokeCount] = useState(0);
-  const [alertMessage, setAlertMessage] = useState(''); // 실시간 알림 팝업용 상태
-  const [deferredPrompt, setDeferredPrompt] = useState(null); // 앱 설치 프롬프트
+  const [alertMessage, setAlertMessage] = useState('');
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -48,7 +48,6 @@ export default function App() {
       setLoading(false);
     });
 
-    // PWA 설치 이벤트 캐치
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -64,7 +63,6 @@ export default function App() {
   const partnerName = isSeungHyun ? '상오니' : '승현';
   const myName = isSeungHyun ? '승현' : '상오니';
 
-  // 콕 찌르기 데이터 및 실시간 알림 감지
   useEffect(() => {
     if (!currentUser) return;
     
@@ -82,10 +80,9 @@ export default function App() {
         const data = docSnap.data();
         const currentMyPoke = data[currentUser.email] || 0;
         
-        // 이전 카운트보다 증가했으면 상대방이 나를 찔렀다는 뜻!
         if (currentMyPoke > pokeCount && pokeCount !== 0) {
           setAlertMessage(`🚨 ${partnerName}님이 당신을 콕 찔렀습니다! 운동하세요! 👉`);
-          setTimeout(() => setAlertMessage(''), 4000); // 4초 뒤 알림 자동 숨김
+          setTimeout(() => setAlertMessage(''), 4000);
         }
 
         setPokeCount(currentMyPoke);
@@ -95,7 +92,6 @@ export default function App() {
     return () => unsubscribe();
   }, [currentUser, partnerEmail, pokeCount, partnerName]);
 
-  // 상대방 찌르기 실행 함수 (상대방의 카운트를 증가시킴)
   const handlePoke = async () => {
     try {
       const docRef = doc(db, 'challenges', 'couple_poke_data');
@@ -108,14 +104,10 @@ export default function App() {
     }
   };
 
-  // 앱 설치 버튼 클릭 핸들러
   const handleInstallClick = () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('사용자가 앱 설치를 수락했습니다.');
-        }
         setDeferredPrompt(null);
       });
     } else {
@@ -182,9 +174,8 @@ export default function App() {
   return (
     <div style={{ maxWidth: '500px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'sans-serif', position: 'relative' }}>
       
-      {/* 실시간 알림 팝업 배너 */}
       {alertMessage && (
-        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#ff4757', color: '#fff', padding: '12px 20px', borderRadius: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, fontWeight: 'bold', animation: 'bounce 0.5s' }}>
+        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#ff4757', color: '#fff', padding: '12px 20px', borderRadius: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, fontWeight: 'bold' }}>
           {alertMessage}
         </div>
       )}
@@ -197,7 +188,8 @@ export default function App() {
       <main style={{ padding: '20px' }}>
         {activeTab === 'home' && (
           <div>
-            <h2>🏠 홈 화면</h2>
+            {/* 💡 이 부분에서 이메일 대신 상대방 이름(partnerName)이 뜨도록 수정했습니다! */}
+            <h2>🏠 {partnerName}의 오늘의 미션</h2>
             <div style={{ background: '#fff0f0', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
               <p style={{ margin: 0, fontWeight: 'bold', color: '#d9534f' }}>
                 ❤️ 현재 {partnerName}님을 응원하는 중입니다!
@@ -229,7 +221,6 @@ export default function App() {
             <h2>⚙️ 설정</h2>
             <p>로그인 계정: {currentUser.email}</p>
             
-            {/* 앱 설치 버튼 */}
             <div style={{ margin: '20px 0', padding: '15px', background: '#e9ecef', borderRadius: '8px' }}>
               <p style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>📱 스마트폰 홈 화면에 앱으로 설치하기</p>
               <button 
