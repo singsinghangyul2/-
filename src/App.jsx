@@ -17,9 +17,6 @@ import {
   increment 
 } from 'firebase/firestore';
 
-// ==========================================
-// 파이어베이스 설정 (기존 설정 유지)
-// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSy...", 
   authDomain: "...",
@@ -41,19 +38,25 @@ export default function App() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
 
-  // 데이터베이스 상태
   const [pokeCount, setPokeCount] = useState(0);
+  const [alertMessage, setAlertMessage] = useState(''); // 실시간 알림 팝업용 상태
+  const [deferredPrompt, setDeferredPrompt] = useState(null); // 앱 설치 프롬프트
 
-  // 인증 상태 감지
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
     });
+
+    // PWA 설치 이벤트 캐치
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+
     return () => unsubscribe();
   }, []);
 
-  // 이메일 매칭 및 상대방 판별
   const userEmail = currentUser?.email ? currentUser.email.trim().toLowerCase() : '';
   const isSeungHyun = userEmail === 'ysh94335@gmail.com';
 
@@ -61,38 +64,41 @@ export default function App() {
   const partnerName = isSeungHyun ? '상오니' : '승현';
   const myName = isSeungHyun ? '승현' : '상오니';
 
-  // 콕 찌르기 데이터 실시간 동기화 (Firestore)
+  // 콕 찌르기 데이터 및 실시간 알림 감지
   useEffect(() => {
     if (!currentUser) return;
     
-    // 두 사람 간의 공용 문서 ID (알파벳순으로 정렬해서 고정)
     const docId = 'couple_poke_data';
     const docRef = doc(db, 'challenges', docId);
 
-    // 문서가 없으면 초기 생성
     getDoc(docRef).then((docSnap) => {
       if (!docSnap.exists()) {
-        setDoc(docRef, { [partnerEmail]: 0 });
+        setDoc(docRef, { [currentUser.email]: 0, [partnerEmail]: 0 });
       }
     });
 
-    // 실시간 리스너 연결
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // 내가 상대방을  찌른 횟수 혹은 상대방이 나를 찌른 횟수 가져오기
-        setPokeCount(data[currentUser.email] || 0);
+        const currentMyPoke = data[currentUser.email] || 0;
+        
+        // 이전 카운트보다 증가했으면 상대방이 나를 찔렀다는 뜻!
+        if (currentMyPoke > pokeCount && pokeCount !== 0) {
+          setAlertMessage(`🚨 ${partnerName}님이 당신을 콕 찔렀습니다! 운동하세요! 👉`);
+          setTimeout(() => setAlertMessage(''), 4000); // 4초 뒤 알림 자동 숨김
+        }
+
+        setPokeCount(currentMyPoke);
       }
     });
 
     return () => unsubscribe();
-  }, [currentUser, partnerEmail]);
+  }, [currentUser, partnerEmail, pokeCount, partnerName]);
 
-  // 콕 찌르기 버튼 클릭 핸들러
+  // 상대방 찌르기 실행 함수 (상대방의 카운트를 증가시킴)
   const handlePoke = async () => {
     try {
       const docRef = doc(db, 'challenges', 'couple_poke_data');
-      // 상대방의 찌르기 카운트를 1 증가시킴 (상대방 화면에 반영됨)
       await updateDoc(docRef, {
         [partnerEmail]: increment(1)
       });
@@ -102,7 +108,21 @@ export default function App() {
     }
   };
 
-  // 로그인 핸들러
+  // 앱 설치 버튼 클릭 핸들러
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('사용자가 앱 설치를 수락했습니다.');
+        }
+        setDeferredPrompt(null);
+      });
+    } else {
+      alert('이미 앱이 설치되어 있거나, 브라우저 메뉴에서 [홈 화면에 추가]를 직접 선택해 주세요!');
+    }
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     try {
@@ -160,7 +180,15 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: '500px', margin: '0 auto', paddingBottom: '80px', fontFamily: 'sans-serif', position: 'relative' }}>
+      
+      {/* 실시간 알림 팝업 배너 */}
+      {alertMessage && (
+        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#ff4757', color: '#fff', padding: '12px 20px', borderRadius: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, fontWeight: 'bold', animation: 'bounce 0.5s' }}>
+          {alertMessage}
+        </div>
+      )}
+
       <header style={{ padding: '15px', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0 }}>푸켓행 바디 챌린지 🏝️</h3>
         <span style={{ fontSize: '14px', color: '#666' }}>{myName}님 환영해요!</span>
@@ -186,9 +214,6 @@ export default function App() {
             <h2>👉 콕 찌르기</h2>
             <p>{partnerName}님을 콕 찔러서 운동하라고 독려해보세요!</p>
             <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '10px', textAlign: 'center', marginTop: '20px' }}>
-              <p style={{ fontSize: '18px', marginBottom: '15px' }}>
-                상대방이 나를   찌른 횟수: <b>{pokeCount}번</b>
-              </p>
               <button 
                 onClick={handlePoke}
                 style={{ padding: '12px 24px', fontSize: '16px', background: '#ff6b6b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
@@ -203,9 +228,21 @@ export default function App() {
           <div>
             <h2>⚙️ 설정</h2>
             <p>로그인 계정: {currentUser.email}</p>
+            
+            {/* 앱 설치 버튼 */}
+            <div style={{ margin: '20px 0', padding: '15px', background: '#e9ecef', borderRadius: '8px' }}>
+              <p style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 'bold' }}>📱 스마트폰 홈 화면에 앱으로 설치하기</p>
+              <button 
+                onClick={handleInstallClick}
+                style={{ padding: '10px 15px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                앱 설치하기 / 홈에 추가
+              </button>
+            </div>
+
             <button 
               onClick={handleLogout}
-              style={{ padding: '10px 20px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginTop: '20px' }}
+              style={{ padding: '10px 20px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginTop: '10px' }}
             >
               로그아웃 🚪
             </button>
