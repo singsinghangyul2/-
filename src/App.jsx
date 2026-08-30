@@ -66,7 +66,6 @@ export default function App() {
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
   const [selectedDateForDetail, setSelectedDateForDetail] = useState(null);
   
-  // 사진 크게 보기(모달) 및 갤러리 하위 필터 상태 ('all' | 'diet' | 'workout')
   const [modalImageSrc, setModalImageSrc] = useState(null);
   const [gallerySubTab, setGallerySubTab] = useState('all');
 
@@ -359,7 +358,6 @@ export default function App() {
     return new Date(b.targetDate || b.createdAt) - new Date(a.targetDate || a.createdAt);
   });
 
-  // ── 홈 화면 통계 계산 (원래 데이터로부터 파생값만 계산, 기능 변경 X) ──
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 
   const getTodayDietStatus = (records) => {
@@ -398,129 +396,1496 @@ export default function App() {
   };
   const myStreak = calcStreak(myRecords);
   const partnerStreak = calcStreak(partnerRecords);
-   return (
-    <div style={{ maxWidth: '420px', margin: '0 auto', paddingBottom: '100px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#F4F9F9', minHeight: '100vh', position: 'relative', color: '#2D3748', boxShadow: '0 0 30px rgba(0,0,0,0.08)' }}>
-      
+  return (
+    <div
+      style={{
+        maxWidth: '420px',
+        margin: '0 auto',
+        paddingBottom: '100px',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        background: '#F4F9F9',
+        minHeight: '100vh',
+        position: 'relative',
+        color: '#2D3748',
+        boxShadow: '0 0 30px rgba(0,0,0,0.08)',
+      }}
+    >
       {alertMessage && (
-        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#FF7F50', color: '#FFFFFF', padding: '12px 20px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(255,127,80,0.3)', zIndex: 1000, fontWeight: 'bold', fontSize: '12px', border: '1px solid rgba(255,255,255,0.4)' }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#FF7F50',
+            color: '#FFFFFF',
+            padding: '12px 20px',
+            borderRadius: '16px',
+            boxShadow: '0 10px 25px rgba(255,127,80,0.3)',
+            zIndex: 1000,
+            fontWeight: 'bold',
+            fontSize: '12px',
+            border: '1px solid rgba(255,255,255,0.4)',
+          }}
+        >
           {alertMessage}
         </div>
       )}
 
-      {/* 상단 헤더 – 디자인만 변경, 기능 동일 */}
-      <header style={{ padding: '20px 24px 16px 24px', background: '#FFFFFF' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      {/* ⬆⬆⬆ 상단 헤더 – 기능은 유지, 디자인만 변경 ⬆⬆⬆ */}
+      <header
+        style={{
+          padding: '20px 24px 16px 24px',
+          background: '#FFFFFF',
+          borderBottom: '1px solid #E0E7EE',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+          }}
+        >
           <div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#718096', fontWeight: '600' }}>{myName}님, 오늘도 반가워요! 🌴</p>
-            <h1 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '900', color: '#2D3748' }}>푸켓행 바디 챌린지</h1>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '13px',
+                color: '#718096',
+                fontWeight: '600',
+              }}
+            >
+              {myName}님, 오늘도 반가워요! 🌴
+            </p>
+            <h1
+              style={{
+                margin: '4px 0 0 0',
+                fontSize: '20px',
+                fontWeight: '900',
+                color: '#2D3748',
+              }}
+            >
+              푸켓행 바디 챌린지
+            </h1>
           </div>
-          <button onClick={handleLogout} style={{ background: '#F1F5F9', color: '#64748B', border: 'none', borderRadius: '14px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            로그아웃
-          </button>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#F1F5F9',
+              padding: '6px 12px',
+              borderRadius: '16px',
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#718096' }}>로그인</span>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: '900',
+                color: '#008B8B',
+                maxWidth: '120px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {currentUser.email}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                marginLeft: '4px',
+                border: 'none',
+                background: 'transparent',
+                color: '#CBD5E0',
+                cursor: 'pointer',
+                fontSize: '11px',
+              }}
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
       </header>
 
       {/* 메인 컨텐츠 영역 */}
-      <main style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <main
+        style={{
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        {/* ================== HOME 탭 (디자인 변경) ================== */}
         {activeTab === 'home' && (
           <>
-            {/* D-day 카드 – 새 느낌으로 */}
-            <div style={{ background: 'linear-gradient(135deg, #FFF9E6 0%, #FFFFFF 100%)', padding: '32px 20px', borderRadius: '28px', textAlign: 'center', border: '1px solid #F0EAD6' }}>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#008B8B' }}>푸켓까지</p>
-              <h2 style={{ margin: '10px 0', fontSize: '52px', fontWeight: '900', color: '#FF7F50' }}>D-{calculateDday()}</h2>
-              <p style={{ margin: 0, fontSize: '12px', color: '#A0AEC0', fontWeight: '600' }}>여행일 · 2026-12-31</p>
+            {/* D-day 카드 */}
+            <div
+              style={{
+                background:
+                  'linear-gradient(135deg, #FFF9E6 0%, #FFFFFF 100%)',
+                padding: '32px 20px',
+                borderRadius: '28px',
+                textAlign: 'center',
+                border: '1px solid #F0EAD6',
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#008B8B',
+                }}
+              >
+                푸켓까지
+              </p>
+              <h2
+                style={{
+                  margin: '10px 0',
+                  fontSize: '52px',
+                  fontWeight: '900',
+                  color: '#FF7F50',
+                }}
+              >
+                D-{calculateDday()}
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: '#A0AEC0',
+                  fontWeight: '600',
+                }}
+              >
+                여행일 · 2026-12-31
+              </p>
             </div>
 
-            {/* 오늘의 우리 – 기존 데이터로 통계 표현 */}
-            <h3 style={{ fontSize: '15px', fontWeight: '900', color: '#2D3748', margin: '4px 0 0 4px' }}>오늘의 우리 🏖️</h3>
+            {/* 오늘의 우리 – 통계 카드 */}
+            <h3
+              style={{
+                fontSize: '15px',
+                fontWeight: '900',
+                color: '#2D3748',
+                margin: '4px 0 0 4px',
+              }}
+            >
+              오늘의 우리 🏖️
+            </h3>
 
             <div style={{ display: 'flex', gap: '10px' }}>
               {/* 내 카드 */}
-              <div style={{ flex: 1, background: '#FFFFFF', padding: '16px', borderRadius: '20px', border: '2px solid #008B8B' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#2D3748' }}>{myName}</span>
-                  <span style={{ fontSize: '10px', background: '#E0F2F1', color: '#008B8B', padding: '3px 10px', borderRadius: '10px', fontWeight: '900' }}>나</span>
+              <div
+                style={{
+                  flex: 1,
+                  background: '#FFFFFF',
+                  padding: '16px',
+                  borderRadius: '20px',
+                  border: '2px solid #008B8B',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: '900',
+                      color: '#2D3748',
+                    }}
+                  >
+                    {myName}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      background: '#E0F2F1',
+                      color: '#008B8B',
+                      padding: '3px 10px',
+                      borderRadius: '10px',
+                      fontWeight: '900',
+                    }}
+                  >
+                    나
+                  </span>
                 </div>
-                <StatRow label="오늘 식단" value={myTodayDiet} valueColor={myTodayDiet === '성공' ? '#008B8B' : '#A0AEC0'} />
-                <StatRow label="이번 주 운동" value={`${myWeeklyWorkoutCount}회`} />
-                <StatRow label="연속 성공" value={`${myStreak}일`} />
+                <StatRow
+                  label="오늘 식단"
+                  value={myTodayDiet}
+                  valueColor={
+                    myTodayDiet === '성공' ? '#008B8B' : '#A0AEC0'
+                  }
+                />
+                <StatRow
+                  label="이번 주 운동"
+                  value={`${myWeeklyWorkoutCount}회`}
+                />
+                <StatRow
+                  label="연속 성공"
+                  value={`${myStreak}일`}
+                />
               </div>
 
               {/* 파트너 카드 */}
-              <div style={{ flex: 1, background: '#FFFFFF', padding: '16px', borderRadius: '20px', border: '1px solid #E0F2F1' }}>
+              <div
+                style={{
+                  flex: 1,
+                  background: '#FFFFFF',
+                  padding: '16px',
+                  borderRadius: '20px',
+                  border: '1px solid #E0F2F1',
+                }}
+              >
                 <div style={{ marginBottom: '6px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '900', color: '#2D3748' }}>{partnerName}</span>
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: '900',
+                      color: '#2D3748',
+                    }}
+                  >
+                    {partnerName}
+                  </span>
                 </div>
-                <StatRow label="오늘 식단" value={partnerTodayDiet} valueColor={partnerTodayDiet === '성공' ? '#008B8B' : '#A0AEC0'} />
-                <StatRow label="이번 주 운동" value={`${partnerWeeklyWorkoutCount}회`} />
-                <StatRow label="연속 성공" value={`${partnerStreak}일`} />
+                <StatRow
+                  label="오늘 식단"
+                  value={partnerTodayDiet}
+                  valueColor={
+                    partnerTodayDiet === '성공' ? '#008B8B' : '#A0AEC0'
+                  }
+                />
+                <StatRow
+                  label="이번 주 운동"
+                  value={`${partnerWeeklyWorkoutCount}회`}
+                />
+                <StatRow
+                  label="연속 성공"
+                  value={`${partnerStreak}일`}
+                />
               </div>
             </div>
 
-            {/* 빠른 기록 – 기존 record 탭으로 이동만 */}
-            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '20px', border: '1px solid #E0F2F1' }}>
-              <h4 style={{ margin: '0 0 12px 4px', fontSize: '13px', fontWeight: '900', color: '#2D3748' }}>빠른 기록</h4>
+            {/* 빠른 기록 – record 탭으로 이동 */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '20px',
+                border: '1px solid #E0F2F1',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 12px 4px',
+                  fontSize: '13px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                빠른 기록
+              </h4>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setActiveTab('record')} style={{ flex: 1, padding: '16px', background: '#E9F9EF', color: '#2E7D32', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '13px', cursor: 'pointer' }}>
+                <button
+                  onClick={() => setActiveTab('record')}
+                  style={{
+                    flex: 1,
+                    padding: '16px',
+                    background: '#E9F9EF',
+                    color: '#2E7D32',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontWeight: '900',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
                   🥗 식단 기록
                 </button>
-                <button onClick={() => setActiveTab('record')} style={{ flex: 1, padding: '16px', background: '#E8F4FD', color: '#1565C0', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '13px', cursor: 'pointer' }}>
+                <button
+                  onClick={() => setActiveTab('record')}
+                  style={{
+                    flex: 1,
+                    padding: '16px',
+                    background: '#E8F4FD',
+                    color: '#1565C0',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontWeight: '900',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
                   🏃 운동 기록
                 </button>
               </div>
             </div>
 
-            {/* 찌르기(응원) 카드 – 원래 기능 그대로, 스타일만 살짝 정돈 */}
-            <div style={{ background: '#FFFFFF', padding: '20px', borderRadius: '28px', border: '1px solid #E0F2F1', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <span style={{ fontSize: '12px', fontWeight: '900', color: '#008B8B' }}>✨ 응원 타임라인</span>
-                <span style={{ fontSize: '11px', background: '#FFF8E1', color: '#F57F17', padding: '4px 12px', borderRadius: '12px', fontWeight: '900', border: '1px solid #FFE082' }}>누적 벌금: {totalPenalty.toLocaleString()}원</span>
+            {/* 찌르기(응원) 카드 – 기존 기능 유지 */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '20px',
+                borderRadius: '28px',
+                border: '1px solid #E0F2F1',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '14px',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '900',
+                    color: '#008B8B',
+                  }}
+                >
+                  ✨ 응원 타임라인
+                </span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    background: '#FFF8E1',
+                    color: '#F57F17',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontWeight: '900',
+                    border: '1px solid #FFE082',
+                  }}
+                >
+                  누적 벌금: {totalPenalty.toLocaleString()}원
+                </span>
               </div>
-              <div style={{ background: '#F4F9F9', padding: '16px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', border: '1px solid #E0F2F1' }}>
+              <div
+                style={{
+                  background: '#F4F9F9',
+                  padding: '16px',
+                  borderRadius: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '16px',
+                  border: '1px solid #E0F2F1',
+                }}
+              >
                 <div>
-                  <p style={{ margin: 0, fontWeight: '900', fontSize: '13px', color: '#008B8B' }}>💛 {partnerName}님과 함께 항해 중</p>
-                  <p style={{ margin: '3px 0 0 0', fontSize: '11px', color: '#718096', fontWeight: '500' }}>오늘은 경쟁 말고 서로 달콤하게 응원해 주기!</p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontWeight: '900',
+                      fontSize: '13px',
+                      color: '#008B8B',
+                    }}
+                  >
+                    💛 {partnerName}님과 함께 항해 중
+                  </p>
+                  <p
+                    style={{
+                      margin: '3px 0 0 0',
+                      fontSize: '11px',
+                      color: '#718096',
+                      fontWeight: '500',
+                    }}
+                  >
+                    오늘은 경쟁 말고 서로 달콤하게 응원해 주기!
+                  </p>
                 </div>
                 <span style={{ fontSize: '26px' }}>🏄‍♂️</span>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handlePoke} style={{ flex: 1, padding: '14px', background: '#FF7F50', color: '#FFFFFF', border: 'none', borderRadius: '16px', fontWeight: '900', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(255, 127, 80, 0.25)' }}>🥗 식단 응원 콕!</button>
-                <button onClick={handlePoke} style={{ flex: 1, padding: '14px', background: '#32CD32', color: '#FFFFFF', border: 'none', borderRadius: '16px', fontWeight: '900', cursor: 'pointer', fontSize: '12px', boxShadow: '0 6px 15px rgba(50, 205, 50, 0.25)' }}>💪 운동 응원 콕!</button>
+                <button
+                  onClick={handlePoke}
+                  style={{
+                    flex: 1,
+                    padding: '14px',
+                    background: '#FF7F50',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    boxShadow: '0 6px 15px rgba(255,127,80,0.25)',
+                  }}
+                >
+                  🥗 식단 응원 콕!
+                </button>
+                <button
+                  onClick={handlePoke}
+                  style={{
+                    flex: 1,
+                    padding: '14px',
+                    background: '#32CD32',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    boxShadow: '0 6px 15px rgba(50,205,50,0.25)',
+                  }}
+                >
+                  💪 운동 응원 콕!
+                </button>
               </div>
             </div>
           </>
         )}
 
-        {/* 여기부터는 원래 코드의 calendar / gallery / record / settings 블록을 그대로 둡니다 */}
+        {/* ================== CALENDAR 탭 (기존 기능 그대로) ================== */}
         {activeTab === 'calendar' && (
-          // 👉 당신이 처음 보냈던 코드의 calendar 부분 전체를 여기에 그대로 유지
-          // (이미 원본에 있던 JSX를 그대로 이 위치에 두시면 됩니다)
-          <>
-            {/* 캘린더 섹션 원본 코드 */}
-          </>
-        )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}
+            >
+              <button
+                onClick={() => changeMonth(-1)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                }}
+              >
+                ◀
+              </button>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                {year}년 {month + 1}월
+              </h3>
+              <button
+                onClick={() => changeMonth(1)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                }}
+              >
+                ▶
+              </button>
+            </div>
 
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: '4px',
+                fontSize: '12px',
+                textAlign: 'center',
+                marginBottom: '4px',
+              }}
+            >
+              {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+                <div
+                  key={d}
+                  style={{
+                    fontWeight: '700',
+                    color: d === '일' ? '#E53E3E' : d === '토' ? '#3182CE' : '#4A5568',
+                  }}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: '4px',
+              }}
+            >
+              {Array.from({ length: firstDay }).map((_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = new Date(year, month, day)
+                  .toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+                const myRec = myRecords.find((r) => r.targetDate === dateStr);
+                const partnerRec = partnerRecords.find(
+                  (r) => r.targetDate === dateStr
+                );
+
+                const hasSuccess =
+                  (myRec && myRec.status === '성공') ||
+                  (partnerRec && partnerRec.status === '성공');
+                const hasFail =
+                  (myRec && myRec.status === '실패') ||
+                  (partnerRec && partnerRec.status === '실패');
+                const hasWorkout =
+                  (myRec && myRec.workoutType) ||
+                  (partnerRec && partnerRec.workoutType);
+
+                let bg = '#FFFFFF';
+                if (hasSuccess) bg = '#E6FFFA';
+                if (hasFail) bg = '#FFE6E6';
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDateForDetail(dateStr)}
+                    style={{
+                      borderRadius: '10px',
+                      border: '1px solid #E2E8F0',
+                      padding: '6px 2px',
+                      background,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '11px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: '700',
+                        marginBottom: '2px',
+                        color: '#2D3748',
+                      }}
+                    >
+                      {day}
+                    </span>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
+                      {hasSuccess && (
+                        <span style={{ fontSize: '9px' }}>✅</span>
+                      )}
+                      {hasFail && (
+                        <span style={{ fontSize: '9px' }}>❌</span>
+                      )}
+                      {hasWorkout && (
+                        <span style={{ fontSize: '9px' }}>💪</span>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        color: '#A0AEC0',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {(myRec?.memo || '').slice(0, 4)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {/* ================== GALLERY 탭 (기존 기능 그대로) ================== */}
         {activeTab === 'gallery' && (
-          <>
-            {/* 갤러리 섹션 원본 코드 */}
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['all', 'diet', 'workout'].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setGallerySubTab(key)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: '16px',
+                    border:
+                      gallerySubTab === key
+                        ? 'none'
+                        : '1px solid #E2E8F0',
+                    background:
+                      gallerySubTab === key ? '#3182CE' : '#FFFFFF',
+                    color:
+                      gallerySubTab === key ? '#FFFFFF' : '#4A5568',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {key === 'all'
+                    ? '전체'
+                    : key === 'diet'
+                    ? '식단'
+                    : '운동'}
+                </button>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '4px',
+              }}
+            >
+              {allCombinedRecords
+                .filter((rec) => {
+                  if (gallerySubTab === 'diet') {
+                    return (rec.photoUrls || []).length > 0;
+                  }
+                  if (gallerySubTab === 'workout') {
+                    return (rec.workoutPhotoUrls || []).length > 0;
+                  }
+                  return (
+                    (rec.photoUrls || []).length > 0 ||
+                    (rec.workoutPhotoUrls || []).length > 0
+                  );
+                })
+                .flatMap((rec) => {
+                  const dietImages = (rec.photoUrls || []).map((url) => ({
+                    url,
+                    type: 'diet',
+                    date: rec.targetDate,
+                  }));
+                  const workoutImages = (rec.workoutPhotoUrls || []).map(
+                    (url) => ({
+                      url,
+                      type: 'workout',
+                      date: rec.targetDate,
+                    })
+                  );
+                  return [...dietImages, ...workoutImages];
+                })
+                .map((img, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      paddingBottom: '100%',
+                      overflow: 'hidden',
+                      borderRadius: '8px',
+                      background: '#CBD5E0',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setModalImageSrc(img.url)}
+                  >
+                    <img
+                      src={img.url}
+                      alt=""
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: '2px',
+                        right: '4px',
+                        fontSize: '9px',
+                        padding: '1px 3px',
+                        borderRadius: '6px',
+                        background:
+                          img.type === 'diet'
+                            ? 'rgba(45, 55, 72, 0.8)'
+                            : 'rgba(49, 130, 206, 0.8)',
+                        color: '#FFFFFF',
+                      }}
+                    >
+                      {img.type === 'diet' ? '식단' : '운동'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
         )}
 
+        {/* ================== RECORD 탭 (기존 기록 입력/목록) ================== */}
         {activeTab === 'record' && (
-          <>
-            {/* 기록 섹션 원본 코드 */}
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* 날짜 선택 및 상태 */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '20px',
+                border: '1px solid #E2E8F0',
+              }}
+            >
+              <div style={{ marginBottom: '8px' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  기록 날짜
+                </label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    marginTop: '4px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E0',
+                    fontSize: '12px',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  식단 상태
+                </span>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  {['성공', '실패', '야자수 데이'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setDietStatus(s)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 0',
+                        borderRadius: '16px',
+                        border:
+                          dietStatus === s
+                            ? 'none'
+                            : '1px solid #E2E8F0',
+                        background:
+                          dietStatus === s ? '#48BB78' : '#FFFFFF',
+                        color:
+                          dietStatus === s ? '#FFFFFF' : '#4A5568',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  식단 메모
+                </span>
+                <textarea
+                  value={dietMemo}
+                  onChange={(e) => setDietMemo(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    marginTop: '4px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E0',
+                    fontSize: '12px',
+                    resize: 'vertical',
+                  }}
+                  placeholder="오늘 식단을 간단히 적어주세요."
+                />
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  식단 사진
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleDietImagesUpload}
+                  style={{ display: 'block', marginTop: '4px', fontSize: '11px' }}
+                />
+                {uploadingDietImage && (
+                  <p style={{ fontSize: '11px', marginTop: '4px' }}>
+                    압축/업로드 중...
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '4px',
+                    marginTop: '6px',
+                  }}
+                >
+                  {dietPhotoUrls.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt=""
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                      }}
+                      onClick={() => setModalImageSrc(url)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveDiet}
+                style={{
+                  width: '100%',
+                  padding: '10px 0',
+                  background: '#48BB78',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '16px',
+                  fontWeight: '900',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  marginTop: '4px',
+                }}
+              >
+                🥗 식단 기록 저장
+              </button>
+            </div>
+
+            {/* 운동 기록 카드 */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '20px',
+                border: '1px solid #E2E8F0',
+              }}
+            >
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  운동 종류
+                </span>
+                <select
+                  value={workoutType}
+                  onChange={(e) => setWorkoutType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    marginTop: '4px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E0',
+                    fontSize: '12px',
+                  }}
+                >
+                  <option>헬스/피트니스</option>
+                  <option>러닝/조깅</option>
+                  <option>수영</option>
+                  <option>요가/필라테스</option>
+                  <option>기타</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  운동 시간(분)
+                </span>
+                <input
+                  type="number"
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                  style={{
+                    width: '100%',
+                    marginTop: '4px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E0',
+                    fontSize: '12px',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  운동 메모
+                </span>
+                <textarea
+                  value={workoutMemo}
+                  onChange={(e) => setWorkoutMemo(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    marginTop: '4px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E0',
+                    fontSize: '12px',
+                    resize: 'vertical',
+                  }}
+                  placeholder="오늘 운동을 간단히 적어주세요."
+                />
+              </div>
+
+              <div style={{ marginBottom: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#4A5568',
+                  }}
+                >
+                  운동 사진
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleWorkoutImagesUpload}
+                  style={{ display: 'block', marginTop: '4px', fontSize: '11px' }}
+                />
+                {uploadingWorkoutImage && (
+                  <p style={{ fontSize: '11px', marginTop: '4px' }}>
+                    압축/업로드 중...
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '4px',
+                    marginTop: '6px',
+                  }}
+                >
+                  {workoutPhotoUrls.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt=""
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                      }}
+                      onClick={() => setModalImageSrc(url)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveWorkout}
+                style={{
+                  width: '100%',
+                  padding: '10px 0',
+                  background: '#3182CE',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '16px',
+                  fontWeight: '900',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  marginTop: '4px',
+                }}
+              >
+                💪 운동 기록 저장
+              </button>
+            </div>
+          </div>
         )}
 
+        {/* ================== SETTINGS 탭 (간단 요약/벌금 등) ================== */}
         {activeTab === 'settings' && (
-          <>
-            {/* 설정 섹션 원본 코드 */}
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '20px',
+                border: '1px solid #E2E8F0',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '14px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                요약 통계
+              </h3>
+              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+                내 총 기록 수: {myRecords.length}개
+              </p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+                파트너 기록 수: {partnerRecords.length}개
+              </p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#4A5568' }}>
+                누적 벌금: {totalPenalty.toLocaleString()}원
+              </p>
+            </div>
+
+            <div
+              style={{
+                background: '#FFFFFF',
+                padding: '16px',
+                borderRadius: '20px',
+                border: '1px solid #E2E8F0',
+              }}
+            >
+              <h3
+                style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '14px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                계정
+              </h3>
+              <p style={{ margin: 0, fontSize: '12px', color: '#4A5568' }}>
+                현재 로그인: {currentUser.email}
+              </p>
+              <button
+                onClick={handleLogout}
+                style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: '#EDF2F7',
+                  color: '#4A5568',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                }}
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
         )}
       </main>
 
-      {/* 날짜 상세 모달 / 사진 확대 모달 / 하단 네비게이션 – 원본 그대로 */}
-      {/* 👉 여기에도 처음 보내주신 모달/네비 코드 전체를 그대로 두시면 됩니다. */}
+      {/* ================== 날짜 상세 모달 ================== */}
+      {selectedDateForDetail && (
+        <div
+          onClick={() => setSelectedDateForDetail(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '90%',
+              maxWidth: '360px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              background: '#FFFFFF',
+              borderRadius: '18px',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                {selectedDateForDetail}
+              </h3>
+              <button
+                onClick={() => setSelectedDateForDetail(null)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 내 기록 */}
+            <div
+              style={{
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '10px',
+                marginBottom: '8px',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 4px 0',
+                  fontSize: '13px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                {myName} 기록
+              </h4>
+              {myRecordForSelectedDate ? (
+                <>
+                  <p style={{ margin: 0, fontSize: '12px' }}>
+                    식단 상태: {myRecordForSelectedDate.status}
+                  </p>
+                  <p
+                    style={{
+                      margin: '4px 0 0 0',
+                      fontSize: '12px',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    메모: {myRecordForSelectedDate.memo}
+                  </p>
+                  {(myRecordForSelectedDate.photoUrls || []).length > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginTop: '6px',
+                      }}
+                    >
+                      {myRecordForSelectedDate.photoUrls.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt=""
+                          style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '6px',
+                            objectFit: 'cover',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setModalImageSrc(url)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {myRecordForSelectedDate.workoutType && (
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                      운동: {myRecordForSelectedDate.workoutType} (
+                      {myRecordForSelectedDate.durationMinutes}분)
+                    </p>
+                  )}
+                  {(myRecordForSelectedDate.workoutPhotoUrls || []).length >
+                    0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginTop: '6px',
+                      }}
+                    >
+                      {myRecordForSelectedDate.workoutPhotoUrls.map(
+                        (url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt=""
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '6px',
+                              objectFit: 'cover',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalImageSrc(url)}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleDeleteRecord(myRecordForSelectedDate.id)}
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 10px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: '#FED7D7',
+                      color: '#C53030',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    이 날짜 내 기록 삭제
+                  </button>
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: '12px', color: '#A0AEC0' }}>
+                  기록 없음
+                </p>
+              )}
+            </div>
+
+            {/* 파트너 기록 */}
+            <div
+              style={{
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '10px',
+                marginBottom: '4px',
+              }}
+            >
+              <h4
+                style={{
+                  margin: '0 0 4px 0',
+                  fontSize: '13px',
+                  fontWeight: '900',
+                  color: '#2D3748',
+                }}
+              >
+                {partnerName} 기록
+              </h4>
+              {partnerRecordForSelectedDate ? (
+                <>
+                  <p style={{ margin: 0, fontSize: '12px' }}>
+                    식단 상태: {partnerRecordForSelectedDate.status}
+                  </p>
+                  <p
+                    style={{
+                      margin: '4px 0 0 0',
+                      fontSize: '12px',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    메모: {partnerRecordForSelectedDate.memo}
+                  </p>
+                  {(partnerRecordForSelectedDate.photoUrls || []).length >
+                    0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginTop: '6px',
+                      }}
+                    >
+                      {partnerRecordForSelectedDate.photoUrls.map(
+                        (url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt=""
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '6px',
+                              objectFit: 'cover',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalImageSrc(url)}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
+                  {partnerRecordForSelectedDate.workoutType && (
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
+                      운동: {partnerRecordForSelectedDate.workoutType} (
+                      {partnerRecordForSelectedDate.durationMinutes}분)
+                    </p>
+                  )}
+                  {(partnerRecordForSelectedDate.workoutPhotoUrls || [])
+                    .length > 0 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '4px',
+                        marginTop: '6px',
+                      }}
+                    >
+                      {partnerRecordForSelectedDate.workoutPhotoUrls.map(
+                        (url, idx) => (
+                          <img
+                            key={idx}
+                            src={url}
+                            alt=""
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '6px',
+                              objectFit: 'cover',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => setModalImageSrc(url)}
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: '12px', color: '#A0AEC0' }}>
+                  기록 없음
+                </p>
+              )}
+            </div>
+          </div>
+        )
+      )}
+
+      {/* ================== 사진 확대 모달 ================== */}
+      {modalImageSrc && (
+        <div
+          onClick={() => setModalImageSrc(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 110,
+          }}
+        >
+          <img
+            src={modalImageSrc}
+            alt=""
+            style={{
+              maxWidth: '90%',
+              maxHeight: '80%',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* ================== 하단 네비게이션 바 ================== */}
+      <nav
+        style={{
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bottom: '12px',
+          width: '100%',
+          maxWidth: '420px',
+          padding: '8px 12px',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            background: '#FFFFFF',
+            borderRadius: '999px',
+            boxShadow: '0 6px 20px rgba(15,23,42,0.18)',
+            overflow: 'hidden',
+          }}
+        >
+          {[
+            { key: 'home', label: '홈', icon: '🏝️' },
+            { key: 'calendar', label: '캘린더', icon: '📆' },
+            { key: 'gallery', label: '갤러리', icon: '🖼️' },
+            { key: 'record', label: '기록', icon: '✏️' },
+            { key: 'settings', label: '설정', icon: '⚙️' },
+          ].map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: active ? '#008B8B' : 'transparent',
+                  color: active ? '#FFFFFF' : '#64748B',
+                  padding: '6px 0',
+                  fontSize: '11px',
+                  fontWeight: active ? '800' : '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '1px',
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
-} 
+}        
