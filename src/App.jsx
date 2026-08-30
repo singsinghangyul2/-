@@ -341,6 +341,11 @@ export default function App() {
   const myRecordForSelectedDate = myRecords.find(r => r.targetDate === selectedDateForDetail);
   const partnerRecordForSelectedDate = partnerRecords.find(r => r.targetDate === selectedDateForDetail);
 
+  // 모든 기록(나 + 상대방)을 모아서 날짜 기준 내림차순(최신순) 정렬
+  const allCombinedRecords = [...myRecords, ...partnerRecords].sort((a, b) => {
+    return new Date(b.targetDate || b.createdAt) - new Date(a.targetDate || a.createdAt);
+  });
+
   return (
     <div style={{ maxWidth: '420px', margin: '0 auto', paddingBottom: '100px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#F4F9F9', minHeight: '100vh', position: 'relative', color: '#2D3748', boxShadow: '0 0 30px rgba(0,0,0,0.08)' }}>
       
@@ -465,6 +470,83 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'gallery' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0, paddingLeft: '4px' }}>🖼️ 날짜별 사진 갤러리</h2>
+            <p style={{ margin: 0, fontSize: '11px', color: '#718096', paddingLeft: '4px' }}>우리(나와 {partnerName}님)가 올린 인증 사진들을 날짜별로 모아볼 수 있어요!</p>
+
+            {allCombinedRecords.length === 0 ? (
+              <div style={{ background: '#FFFFFF', padding: '30px', borderRadius: '20px', textAlign: 'center', border: '1px solid #E0F2F1', color: '#A0AEC0', fontSize: '12px', fontWeight: 'bold' }}>
+                아직 등록된 기록이 없습니다. 인증샷을 올려보세요! 📸
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {allCombinedRecords.map((rec) => {
+                  const isMine = rec.ownerEmail === currentUser.email;
+                  const writerLabel = isMine ? `나 (${myName})` : `${partnerName}님`;
+                  const hasDietPhotos = rec.photoUrls && rec.photoUrls.length > 0;
+                  const hasWorkoutPhotos = rec.workoutPhotoUrls && rec.workoutPhotoUrls.length > 0;
+
+                  if (!hasDietPhotos && !hasWorkoutPhotos) return null;
+
+                  return (
+                    <div key={rec.id} style={{ background: '#FFFFFF', padding: '14px', borderRadius: '20px', border: '1px solid #E0F2F1', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '900', color: '#008B8B' }}>📅 {rec.targetDate}</span>
+                        <span style={{ fontSize: '10px', background: isMine ? '#E0F2F1' : '#FFF8E1', color: isMine ? '#00695C' : '#D97706', padding: '3px 8px', borderRadius: '8px', fontWeight: '900' }}>
+                          {writerLabel}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#4A5568' }}>
+                        상태: <span style={{ color: '#008B8B' }}>{rec.status}</span>
+                        {rec.workoutType && ` / ${rec.workoutType} (${rec.durationMinutes}분)`}
+                        {rec.memo && <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#718096' }}>메모: {rec.memo}</p>}
+                      </div>
+
+                      {/* 식단 사진 목록 */}
+                      {hasDietPhotos && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 4px 0' }}>🥗 식단 사진</p>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {rec.photoUrls.map((url, i) => (
+                              <img 
+                                key={i} 
+                                src={url} 
+                                alt="식단" 
+                                onClick={() => setModalImageSrc(url)}
+                                style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1', cursor: 'pointer' }} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 운동 사진 목록 */}
+                      {hasWorkoutPhotos && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '6px 0 4px 0' }}>💪 운동 사진</p>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {rec.workoutPhotoUrls.map((url, i) => (
+                              <img 
+                                key={i} 
+                                src={url} 
+                                alt="운동" 
+                                onClick={() => setModalImageSrc(url)}
+                                style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #E0F2F1', cursor: 'pointer' }} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'record' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0, paddingLeft: '4px' }}>📝 상큼한 미션 기록하기</h2>
@@ -513,7 +595,6 @@ export default function App() {
 
                 <textarea placeholder="식단 메모" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #B2DFDB', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                {/* 실시간 미리보기 및 클릭 시 확대 기능이 포함된 식단 사진 업로드 */}
                 <div>
                   <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E0F2F1', color: '#00695C', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #008B8B', boxSizing: 'border-box' }}>
                     📸 식단 사진 추가 ({dietPhotoUrls.length}장)
@@ -549,7 +630,6 @@ export default function App() {
                 <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="시간 (분)" style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', fontSize: '10px', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid #C8E6C9', height: '40px', fontSize: '10px', resize: 'none', background: '#F8FBFB', boxSizing: 'border-box', outline: 'none' }} />
                 
-                {/* 실시간 미리보기 및 클릭 시 확대 기능이 포함된 운동 사진 업로드 */}
                 <div>
                   <label style={{ display: 'block', width: '100%', padding: '10px', background: '#E8F5E9', color: '#2E7D32', borderRadius: '10px', textAlign: 'center', fontWeight: '900', fontSize: '10px', cursor: 'pointer', border: '1px dashed #32CD32', boxSizing: 'border-box' }}>
                     📸 운동 인증샷 ({workoutPhotoUrls.length}장)
@@ -595,7 +675,7 @@ export default function App() {
         )}
       </main>
 
-      {/* 캘린더 날짜별 상세 모달 (클릭 시 사진 확대 기능 적용) */}
+      {/* 캘린더 날짜별 상세 모달 */}
       {selectedDateForDetail && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#FFFFFF', width: '100%', maxWidth: '360px', padding: '24px', borderRadius: '28px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
@@ -622,7 +702,6 @@ export default function App() {
                   </p>
                   <p style={{ margin: 0, fontSize: '11px', color: '#4A5568' }}>메모: {myRecordForSelectedDate.memo || '메모 없음'}</p>
                   
-                  {/* 내 식단 사진 (클릭 확대) */}
                   {myRecordForSelectedDate.photoUrls && myRecordForSelectedDate.photoUrls.length > 0 && (
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 2px 0' }}>🥗 식단 사진 (클릭시 확대)</p>
@@ -640,7 +719,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* 내 운동 사진 (클릭 확대) */}
                   {myRecordForSelectedDate.workoutPhotoUrls && myRecordForSelectedDate.workoutPhotoUrls.length > 0 && (
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '4px 0 2px 0' }}>💪 운동 사진 (클릭시 확대)</p>
@@ -675,7 +753,6 @@ export default function App() {
                   </p>
                   <p style={{ margin: 0, fontSize: '11px', color: '#4A5568' }}>메모: {partnerRecordForSelectedDate.memo || '메모 없음'}</p>
                   
-                  {/* 상대방 식단 사진 (클릭 확대) */}
                   {partnerRecordForSelectedDate.photoUrls && partnerRecordForSelectedDate.photoUrls.length > 0 && (
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: '900', color: '#FF7F50', margin: '4px 0 2px 0' }}>🥗 식단 사진 (클릭시 확대)</p>
@@ -693,7 +770,6 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* 상대방 운동 사진 (클릭 확대) */}
                   {partnerRecordForSelectedDate.workoutPhotoUrls && partnerRecordForSelectedDate.workoutPhotoUrls.length > 0 && (
                     <div>
                       <p style={{ fontSize: '10px', fontWeight: '900', color: '#32CD32', margin: '4px 0 2px 0' }}>💪 운동 사진 (클릭시 확대)</p>
@@ -742,11 +818,12 @@ export default function App() {
         </div>
       )}
 
-      {/* 하단 네비게이션 바 */}
+      {/* 하단 네비게이션 바 (갤러리 탭 추가) */}
       <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '420px', background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(10px)', borderTop: '1px solid #E0F2F1', display: 'flex', justifyContent: 'space-around', padding: '10px 0', zIndex: 900, boxShadow: '0 -10px 25px rgba(0,0,0,0.05)', borderTopLeftRadius: '28px', borderTopRightRadius: '28px' }}>
         {[
           ['home', '🏠 홈'], 
           ['calendar', '📅 캘린더'], 
+          ['gallery', '🖼️ 갤러리'],
           ['record', '📝 기록'], 
           ['settings', '⚙️ 설정']
         ].map(([tab, label]) => {
@@ -755,7 +832,7 @@ export default function App() {
             <button 
               key={tab} 
               onClick={() => setActiveTab(tab)} 
-              style={{ background: isActive ? '#E0F2F1' : 'transparent', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 16px', borderRadius: '16px', color: isActive ? '#008B8B' : '#A0AEC0', fontWeight: isActive ? '900' : 'bold', transform: isActive ? 'scale(1.05)' : 'scale(1)' }}
+              style={{ background: isActive ? '#E0F2F1' : 'transparent', border: 'none', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 12px', borderRadius: '16px', color: isActive ? '#008B8B' : '#A0AEC0', fontWeight: isActive ? '900' : 'bold', transform: isActive ? 'scale(1.05)' : 'scale(1)' }}
             >
               <span style={{ fontSize: '14px' }}>{label.split(' ')[0]}</span>
               <span style={{ fontSize: '10px' }}>{label.split(' ')[1]}</span>
