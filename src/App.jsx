@@ -1,25 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  onSnapshot, 
-  updateDoc, 
-  increment,
-  collection,
-  addDoc,
-  query,
-  where,
-  getDocs
+  getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs, setIndexConfiguration
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -35,7 +20,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// 이메일 주소의 점(.)을 언더바(_)로 치환하여 Firestore 필드 키 중첩 오류 방지
 const sanitizeEmail = (email) => email ? email.trim().toLowerCase().replace(/\./g, '_') : '';
 
 export default function App() {
@@ -46,14 +30,13 @@ export default function App() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
 
-  // 상태 관리
   const [pokeCount, setPokeCount] = useState(0);
   const [alertMessage, setAlertMessage] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // 식단 및 운동 입력 상태
-  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dietStatus, setDietStatus] = useState('성공'); // 성공, 실패, 야자수 데이
+  // 입력 상태
+  const [targetDate, setTargetDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }));
+  const [dietStatus, setDietStatus] = useState('성공'); 
   const [dietMemo, setDietMemo] = useState('');
   const [dietPhotoUrl, setDietPhotoUrl] = useState('');
   
@@ -62,20 +45,18 @@ export default function App() {
   const [workoutMemo, setWorkoutMemo] = useState('');
   const [workoutCompleted, setWorkoutCompleted] = useState(true);
 
-  // 기록 목록
   const [myRecords, setMyRecords] = useState([]);
+  const [penalties, setPenalties] = useState([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
     });
-
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -88,43 +69,39 @@ export default function App() {
   const sanitizedMyEmailKey = sanitizeEmail(currentUser?.email);
   const sanitizedPartnerEmailKey = sanitizeEmail(partnerEmail);
 
+  // D-Day 계산 (Asia/Seoul 기준)
   const calculateDday = () => {
-    const targetDateObj = new Date('2026-12-31');
-    const today = new Date();
-    const diffTime = targetDateObj - today;
+    const target = new Date('2026-12-31T00:00:00+09:00');
+    const todayStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+    const today = new Date(todayStr);
+    const diffTime = target - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
-  // 실시간 콕 찌르기 동기화 (오류 핸들러 및 이메일 키 살균 적용)
+  // 실시간 콕 찌르기 리스너
   useEffect(() => {
     if (!currentUser) return;
     const docRef = doc(db, 'challenges', 'couple_poke_data');
     
-    getDoc(docRef).then((docSnap) => {
-      if (!docSnap.exists()) {
-        setDoc(docRef, { [sanitizedMyEmailKey]: 0, [sanitizedPartnerEmailKey]: 0 });
-      }
-    }).catch((err) => console.error("Poke doc init error:", err));
-
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const currentMyPoke = data[sanitizedMyEmailKey] || 0;
         if (currentMyPoke > pokeCount && pokeCount !== 0) {
-          setAlertMessage(`🚨 ${partnerName}님이 당신을 콕 찔렀습니다! 미션을 확인하세요! 👉`);
-          setTimeout(() => setAlertMessage(''), 4000);
+          setAlertMessage(`🚨 ${partnerName}님이 콕 찔렀어요! 오늘의 푸켓 미션을 확인해 보세요! 👉`);
+          setTimeout(() => setAlertMessage(''), 5000);
         }
         setPokeCount(currentMyPoke);
+      } else {
+        setDoc(docRef, { [sanitizedMyEmailKey]: 0, [sanitizedPartnerEmailKey]: 0 });
       }
-    }, (error) => {
-      console.error("Firestore 실시간 동기화 에러:", error);
-    });
+    }, (error) => console.error("Poke sync error:", error));
 
     return () => unsubscribe();
   }, [currentUser, sanitizedMyEmailKey, sanitizedPartnerEmailKey, pokeCount, partnerName]);
 
-  // Firestore에서 내 기록 불러오기
+  // 기록 불러오기 및 마감 규칙 검증
   useEffect(() => {
     if (!currentUser) return;
     const fetchRecords = async () => {
@@ -132,12 +109,44 @@ export default function App() {
         const q = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
         const querySnapshot = await getDocs(q);
         const list = [];
-        querySnapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() });
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          // 마감 검증: 대상 날짜의 다음 날 오후 11시 59분 59초 초과 여부 확인
+          const targetD = new Date(data.targetDate);
+          const deadline = new Date(targetD.setDate(targetD.getDate() + 2)); // 다다음날 0시 직전
+          deadline.setHours(0, 0, 0, 0);
+          
+          const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+          if (now >= deadline && !data.isLocked) {
+            // 자동 실패 및 벌금 정산 트리거
+            // UniquePenaltyKey: OwnerEmail + TargetDate + PenaltyType
+            const penaltyKey = `${currentUser.email}_${data.targetDate}_DIET`;
+            if (data.status === '미입력' || data.status === '실패') {
+              addDoc(collection(db, 'penalties'), {
+                coupleId: 'couple_01',
+                ownerEmail: currentUser.email,
+                partnerEmail: partnerEmail,
+                penaltyType: 'DIET',
+                referenceDate: data.targetDate,
+                amount: 10000,
+                reason: `식단 마감 초과/실패 (${data.targetDate})`,
+                uniquePenaltyKey: penaltyKey,
+                createdAt: new Date().toISOString()
+              }).catch(() => {}); // 중복 키 에러 무시
+            }
+          }
+          list.push({ id: docSnap.id, ...data });
         });
         setMyRecords(list);
+
+        // 벌금 현황 로드
+        const pQuery = query(collection(db, 'penalties'), where('ownerEmail', '==', currentUser.email));
+        const pSnapshot = await getDocs(pQuery);
+        const pList = [];
+        pSnapshot.forEach((docSnap) => pList.push(docSnap.data()));
+        setPenalties(pList);
       } catch (e) {
-        console.error("Record fetch error:", e);
+        console.error("Fetch error:", e);
       }
     };
     fetchRecords();
@@ -146,8 +155,13 @@ export default function App() {
   const handlePoke = async () => {
     try {
       const docRef = doc(db, 'challenges', 'couple_poke_data');
-      await updateDoc(docRef, { [sanitizedPartnerEmailKey]: increment(1) });
-      alert(`${partnerName}님을 콕 찔렀습니다! 👉`);
+      const snap = await getDoc(docRef);
+      let currentVal = 0;
+      if (snap.exists()) {
+        currentVal = snap.data()[sanitizedPartnerEmailKey] || 0;
+      }
+      await setDoc(docRef, { [sanitizedPartnerEmailKey]: currentVal + 1 }, { merge: true });
+      alert(`${partnerName}님을 성공적으로 콕 찔렀습니다! 👉`);
     } catch (error) {
       alert('오류 발생: ' + error.message);
     }
@@ -162,7 +176,6 @@ export default function App() {
     }
   };
 
-  // 식단 저장
   const handleSaveDiet = async (e) => {
     e.preventDefault();
     try {
@@ -173,10 +186,11 @@ export default function App() {
         targetDate: targetDate,
         status: dietStatus,
         memo: dietMemo,
-        photoUrl: dietPhotoUrl,
+        photoUrls: dietPhotoUrl ? [dietPhotoUrl] : [],
+        isLocked: false,
         createdAt: new Date().toISOString()
       });
-      alert('식단 기록이 저장되었습니다! 🥗');
+      alert('식단 기록이 안전하게 저장되었습니다! 🥗');
       setDietMemo('');
       setDietPhotoUrl('');
     } catch (err) {
@@ -184,7 +198,6 @@ export default function App() {
     }
   };
 
-  // 운동 저장
   const handleSaveWorkout = async (e) => {
     e.preventDefault();
     try {
@@ -197,9 +210,10 @@ export default function App() {
         durationMinutes: durationMinutes,
         memo: workoutMemo,
         completed: workoutCompleted,
+        isLocked: false,
         createdAt: new Date().toISOString()
       });
-      alert('운동 기록이 저장되었습니다! 💪');
+      alert('운동 기록이 저장되었습니다! 💪 하루 최대 1회 인증이 반영됩니다.');
       setWorkoutMemo('');
     } catch (err) {
       alert('저장 실패: ' + err.message);
@@ -222,69 +236,80 @@ export default function App() {
   const handleLogout = async () => { await signOut(auth); };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', marginTop: '100px', fontSize: '18px', color: '#00838f' }}>로딩 중... 🏝️</div>;
+    return <div className="text-center mt-24 text-lg text-teal-600 font-bold">로딩 중... 🏝️</div>;
   }
 
   if (!currentUser) {
     return (
-      <div style={{ maxWidth: '400px', margin: '60px auto', padding: '30px', fontFamily: 'sans-serif', background: '#fdfbf7', borderRadius: '20px', boxShadow: '0 8px 25px rgba(0,0,0,0.08)', border: '1px solid #b2dfdb' }}>
-        <h2 style={{ textAlign: 'center', color: '#00838f', marginBottom: '8px' }}>🏝️ 푸켓행 바디 챌린지</h2>
-        <p style={{ textAlign: 'center', color: '#666', fontSize: '14px', marginBottom: '25px' }}>커플 식단 및 운동 미션 관리 앱</p>
-        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ padding: '14px', borderRadius: '10px', border: '1px solid #b2dfdb' }} />
-          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ padding: '14px', borderRadius: '10px', border: '1px solid #b2dfdb' }} />
-          <button type="submit" style={{ padding: '14px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{isSignUp ? '가입하기' : '로그인하기'}</button>
+      <div className="max-w-md mx-auto mt-16 p-8 bg-[#fdfbf7] rounded-3xl shadow-lg border border-teal-100">
+        <h2 className="text-center text-teal-700 text-2xl font-black mb-2">🏝️ 푸켓행 바디 챌린지</h2>
+        <p className="text-center text-gray-500 text-sm mb-6">승현 & 상오니의 커플 식단 및 운동 미션 관리</p>
+        <form onSubmit={handleAuth} className="flex flex-col gap-4">
+          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
+          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
+          <button type="submit" className="p-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition">{isSignUp ? '가입하기' : '로그인하기'}</button>
         </form>
-        <button onClick={() => setIsSignUp(!isSignUp)} style={{ background: 'none', border: 'none', color: '#ff7043', marginTop: '20px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}>
+        <button onClick={() => setIsSignUp(!isSignUp)} className="bg-transparent border-none text-coral-500 mt-5 w-full font-bold cursor-pointer text-sm">
           {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
         </button>
       </div>
     );
   }
 
+  const totalPenalty = penalties.reduce((acc, cur) => acc + (cur.amount || 0), 0);
+
   return (
-    <div style={{ maxWidth: '500px', margin: '0 auto', paddingBottom: '90px', fontFamily: 'sans-serif', background: '#fdfbf7', minHeight: '100vh', position: 'relative' }}>
+    <div className="max-w-md mx-auto pb-24 font-sans bg-[#fdfbf7] min-h-screen relative text-gray-800">
       
       {alertMessage && (
-        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: '#ff7043', color: '#fff', padding: '12px 20px', borderRadius: '25px', zIndex: 1000, fontWeight: 'bold', fontSize: '14px' }}>
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-rose-500 text-white px-5 py-3 rounded-full shadow-xl z-50 font-bold text-sm animate-bounce">
           {alertMessage}
         </div>
       )}
 
-      <header style={{ padding: '15px 20px', background: '#00838f', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0, fontSize: '18px' }}>푸켓행 바디 챌린지 🏝️</h3>
-        <span style={{ fontSize: '13px', background: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: '15px', fontWeight: 'bold' }}>{myName}님 환영해요!</span>
+      <header className="p-4 bg-teal-600 text-white flex justify-between items-center shadow-md">
+        <h3 className="m-0 text-lg font-black">푸켓행 바디 챌린지 🏝️</h3>
+        <span className="text-xs bg-white/20 px-3 py-1.5 rounded-full font-bold">{myName}님 환영해요!</span>
       </header>
 
-      <main style={{ padding: '20px' }}>
+      <main className="p-5">
         {activeTab === 'home' && (
           <div>
-            <div style={{ background: '#e0f7fa', padding: '22px', borderRadius: '16px', textAlign: 'center', marginBottom: '20px', border: '1px solid #b2dfdb' }}>
-              <h2 style={{ margin: '0 0 8px 0', color: '#006064', fontSize: '24px' }}>푸켓까지 D-{calculateDday()} 🏝️</h2>
-              <p style={{ margin: 0, color: '#00838f', fontSize: '15px', fontWeight: 'bold' }}>우리의 푸켓 바디 만들기, 오늘도 파이팅!</p>
+            <div className="bg-gradient-to-br from-cyan-50 to-teal-50 p-6 rounded-2xl text-center mb-5 border border-teal-200 shadow-sm">
+              <h2 className="m-0 mb-2 text-teal-800 text-2xl font-black">푸켓까지 D-{calculateDday()} 🏝️</h2>
+              <p className="m-0 text-teal-600 text-sm font-bold">야자수 아래의 우리를 상상하며 오늘도 한 걸음!</p>
             </div>
 
-            <h3 style={{ color: '#333', marginBottom: '12px' }}>🏠 {partnerName}의 파트너 상태 카드</h3>
-            <div style={{ background: '#fff', padding: '18px', borderRadius: '14px', marginBottom: '15px', border: '1px solid #eee' }}>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#333' }}>❤️ {partnerName}님과 함께 달리는 중</p>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handlePoke} style={{ flex: 1, padding: '10px', background: '#ff7043', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>🥗 식단 콕 찌르기 👉</button>
-                <button onClick={handlePoke} style={{ flex: 1, padding: '10px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>💪 운동 콕 찌르기 👉</button>
+            <h3 className="text-gray-700 text-base font-bold mb-3">🏠 {partnerName}의 파트너 상태 카드</h3>
+            <div className="bg-white p-5 rounded-2xl mb-4 border border-gray-100 shadow-sm">
+              <p className="m-0 mb-3 font-bold text-gray-700">❤️ {partnerName}님과 함께 달리는 중</p>
+              <div className="flex gap-2">
+                <button onClick={handlePoke} className="flex-1 p-3 bg-rose-400 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-rose-500 transition text-sm">🥗 식단 콕 찌르기 👉</button>
+                <button onClick={handlePoke} className="flex-1 p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">💪 운동 콕 찌르기 👉</button>
               </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="m-0 mb-2 font-bold text-gray-700">💰 이번 달 누적 벌금 현황</p>
+              <p className="m-0 text-rose-600 font-bold">내 누적 벌금: {totalPenalty.toLocaleString()}원</p>
             </div>
           </div>
         )}
 
         {activeTab === 'calendar' && (
           <div>
-            <h2>📅 주간 캘린더 및 기록 조회</h2>
-            <p style={{ color: '#666', fontSize: '14px' }}>나와 상대방의 인증 상태를 한눈에 확인하세요.</p>
-            <div style={{ background: '#fff', padding: '16px', borderRadius: '14px', marginTop: '15px', border: '1px solid #eee' }}>
-              <h4>내 저장된 기록 내역 ({myRecords.length}개)</h4>
+            <h2 className="text-xl font-black mb-1">📅 주간 캘린더 및 기록 조회</h2>
+            <p className="text-gray-500 text-xs mb-4">월요일부터 일요일까지의 식단/운동 상태를 비교하세요.</p>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+              <h4 className="font-bold text-sm mb-3">내 저장된 기록 내역 ({myRecords.length}개)</h4>
               {myRecords.map((r, i) => (
-                <div key={i} style={{ padding: '10px', borderBottom: '1px solid #eee', fontSize: '14px' }}>
-                  <b>[{r.targetDate}]</b> 식단: {r.status} / 메모: {r.memo || '없음'}
-                  {r.photoUrl && <p style={{ margin: '5px 0 0 0', color: '#00838f' }}>📷 사진 첨부됨</p>}
+                <div key={i} className="py-3 border-b border-gray-100 text-sm">
+                  <div className="flex justify-between font-bold text-teal-700">
+                    <span>[{r.targetDate}] 식단: {r.status}</span>
+                    <span className="text-xs text-gray-400">{r.isLocked ? '🔒 마감 완료' : '🔓 수정 가능'}</span>
+                  </div>
+                  <p className="m-1 text-gray-600 text-xs">메모: {r.memo || '없음'}</p>
+                  {r.photoUrls?.[0] && <p className="m-0 text-teal-600 text-xs">📷 사진 등록됨 ({r.photoUrls.length}장)</p>}
                 </div>
               ))}
             </div>
@@ -293,66 +318,55 @@ export default function App() {
 
         {activeTab === 'record' && (
           <div>
-            <h2>📝 식단 및 운동 기록 입력</h2>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#555' }}>대상 날짜 선택:</label>
-              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #b2dfdb', marginTop: '5px' }} />
+            <h2 className="text-xl font-black mb-3">📝 식단 및 운동 기록 입력</h2>
+            <div className="mb-4">
+              <label className="text-xs font-bold text-gray-600">대상 날짜 선택 (오늘 또는 어제만 가능):</label>
+              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mt-1 text-sm bg-white" />
             </div>
 
-            <form onSubmit={handleSaveDiet} style={{ background: '#fff', padding: '18px', borderRadius: '14px', marginBottom: '15px', border: '1px solid #eee' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#00838f' }}>🥗 식단 기록</h4>
-              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #b2dfdb', marginBottom: '10px', fontWeight: 'bold' }}>
+            <form onSubmit={handleSaveDiet} className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
+              <h4 className="m-0 mb-3 text-teal-700 font-bold text-sm">🥗 식단 기록</h4>
+              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 font-bold text-sm bg-white">
                 <option value="성공">성공 ✅</option>
                 <option value="실패">실패 ❌</option>
-                <option value="야자수 데이">야자수 데이 🌴</option>
+                <option value="야자수 데이">야자수 데이 🌴 (치팅 예외일)</option>
               </select>
-              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #b2dfdb', marginBottom: '10px', height: '60px' }} />
-              <input type="text" placeholder="인증 사진 URL (선택 사항)" value={dietPhotoUrl} onChange={(e) => setDietPhotoUrl(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #b2dfdb', marginBottom: '10px' }} />
-              <button type="submit" style={{ width: '100%', padding: '10px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>식단 저장하기</button>
+              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 h-20 text-sm resize-none" />
+              <input type="text" placeholder="인증 사진 URL (여러 장 지원 가능)" value={dietPhotoUrl} onChange={(e) => setDietPhotoUrl(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 text-sm" />
+              <button type="submit" className="w-full p-3 bg-teal-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-teal-700 transition text-sm">식단 저장하기</button>
             </form>
 
-            <form onSubmit={handleSaveWorkout} style={{ background: '#fff', padding: '18px', borderRadius: '14px', border: '1px solid #eee' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#2e7d32' }}>💪 운동 기록</h4>
-              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #c8e6c9', marginBottom: '10px' }} />
-              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #c8e6c9', marginBottom: '10px' }} />
-              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #c8e6c9', marginBottom: '10px', height: '60px' }} />
-              <button type="submit" style={{ width: '100%', padding: '10px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>운동 완료 저장하기 🔥</button>
+            <form onSubmit={handleSaveWorkout} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="m-0 mb-3 text-emerald-700 font-bold text-sm">💪 운동 기록 (하루 최대 1회 인정)</h4>
+              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
+              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
+              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} className="w-full p-3 rounded-xl border border-emerald-200 mb-3 h-20 text-sm resize-none" />
+              <button type="submit" className="w-full p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">운동 완료 저장하기 🔥</button>
             </form>
           </div>
         )}
 
-        {activeTab === 'stats' && (
-          <div>
-            <h2>📊 월별 통계 및 벌금 현황</h2>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '14px', marginTop: '15px', border: '1px solid #eee' }}>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', color: '#333' }}>💰 이번 달 누적 벌금 현황</p>
-              <p style={{ margin: '0 0 5px 0', color: '#c62828' }}>내 누적 벌금: <b>0원</b></p>
-              <p style={{ margin: 0, color: '#c62828' }}>{partnerName} 누적 벌금: <b>0원</b></p>
-            </div>
-          </div>
-        )}
-        
         {activeTab === 'settings' && (
           <div>
-            <h2>⚙️ 설정 및 앱 관리</h2>
-            <p style={{ color: '#666', fontSize: '14px' }}>로그인 계정: <b>{currentUser.email}</b></p>
+            <h2 className="text-xl font-black mb-3">⚙️ 설정 및 앱 관리</h2>
+            <p className="text-gray-600 text-xs mb-4">로그인 계정: <b>{currentUser.email}</b></p>
             
-            <div style={{ margin: '20px 0', padding: '18px', background: '#e0f7fa', borderRadius: '14px', border: '1px solid #b2dfdb' }}>
-              <p style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: 'bold', color: '#006064' }}>📱 스마트폰 홈 화면에 앱으로 설치하기 (PWA)</p>
-              <button onClick={handleInstallClick} style={{ padding: '12px 18px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>앱 설치하기 / 홈에 추가</button>
+            <div className="my-5 p-5 bg-cyan-50 rounded-2xl border border-cyan-200">
+              <p className="m-0 mb-3 text-sm font-bold text-cyan-900">📱 스마트폰 홈 화면에 앱 설치하기 (PWA)</p>
+              <button onClick={handleInstallClick} className="p-3 bg-teal-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm">앱 설치하기 / 홈에 추가</button>
             </div>
 
-            <button onClick={handleLogout} style={{ padding: '14px', background: '#c62828', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>로그아웃 🚪</button>
+            <button onClick={handleLogout} className="p-4 bg-rose-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm hover:bg-rose-700 transition">로그아웃 🚪</button>
           </div>
         )}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '500px', background: '#fff', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-around', padding: '10px 0', zIndex: 100 }}>
-        <button onClick={() => setActiveTab('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'home' ? 'bold' : 'normal', color: activeTab === 'home' ? '#00838f' : '#666', fontSize: '12px' }}>🏠 홈</button>
-        <button onClick={() => setActiveTab('calendar')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'calendar' ? 'bold' : 'normal', color: activeTab === 'calendar' ? '#00838f' : '#666', fontSize: '12px' }}>📅 캘린더</button>
-        <button onClick={() => setActiveTab('record')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'record' ? 'bold' : 'normal', color: activeTab === 'record' ? '#00838f' : '#666', fontSize: '12px' }}>📝 기록</button>
-        <button onClick={() => setActiveTab('stats')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'stats' ? 'bold' : 'normal', color: activeTab === 'stats' ? '#00838f' : '#666', fontSize: '12px' }}>📊 통계</button>
-        <button onClick={() => setActiveTab('settings')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: activeTab === 'settings' ? 'bold' : 'normal', color: activeTab === 'settings' ? '#00838f' : '#666', fontSize: '12px' }}>⚙️ 설정</button>
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-gray-200 flex justify-around py-3 z-40 shadow-lg">
+        {[['home', '🏠 홈'], ['calendar', '📅 캘린더'], ['record', '📝 기록'], ['settings', '⚙️ 설정']].map(([tab, label]) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`bg-transparent border-none cursor-pointer text-xs font-bold ${activeTab === tab ? 'text-teal-600 scale-105' : 'text-gray-400'}`}>
+            {label}
+          </button>
+        ))}
       </nav>
     </div>
   );
