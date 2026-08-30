@@ -42,6 +42,11 @@ export default function App() {
   const [alertMessage, setAlertMessage] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
+  // 식단 및 운동 상태 관리
+  const [dietInput, setDietInput] = useState('');
+  const [dietList, setDietList] = useState([]);
+  const [workoutDone, setWorkoutDone] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -63,6 +68,7 @@ export default function App() {
   const partnerName = isSeungHyun ? '상오니' : '승현';
   const myName = isSeungHyun ? '승현' : '상오니';
 
+  // 콕 찌르기 및 데이터 동기화
   useEffect(() => {
     if (!currentUser) return;
     
@@ -113,6 +119,13 @@ export default function App() {
     } else {
       alert('이미 앱이 설치되어 있거나, 브라우저 메뉴에서 [홈 화면에 추가]를 직접 선택해 주세요!');
     }
+  };
+
+  const handleAddDiet = (e) => {
+    e.preventDefault();
+    if (!dietInput.trim()) return;
+    setDietList([...dietList, dietInput]);
+    setDietInput('');
   };
 
   const handleAuth = async (e) => {
@@ -201,9 +214,21 @@ export default function App() {
           <div>
             <h2>🥗 식단 관리</h2>
             <p>오늘 먹은 건강한 식단을 기록해보세요!</p>
-            <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
-              <p style={{ margin: 0, color: '#555' }}>식단 기록 기능이 여기에 들어갑니다 📝</p>
-            </div>
+            <form onSubmit={handleAddDiet} style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <input 
+                type="text" 
+                placeholder="예: 닭가슴살 샐러드" 
+                value={dietInput} 
+                onChange={(e) => setDietInput(e.target.value)}
+                style={{ flex: 1, padding: '10px', borderRadius: '5px', border: '1px solid #ddd' }}
+              />
+              <button type="submit" style={{ padding: '10px 15px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>추가</button>
+            </form>
+            <ul style={{ marginTop: '15px', paddingLeft: '20px' }}>
+              {dietList.map((item, index) => (
+                <li key={index} style={{ marginBottom: '8px', fontSize: '16px' }}>{item}</li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -211,8 +236,16 @@ export default function App() {
           <div>
             <h2>💪 운동 루틴</h2>
             <p>푸켓을 위한 오늘의 운동을 체크해볼까요?</p>
-            <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '10px', marginTop: '15px' }}>
-              <p style={{ margin: 0, color: '#555' }}>운동 루틴 기능이 여기에 들어갑니다 🔥</p>
+            <div style={{ background: '#f8f9fa', padding: '15px', borderRadius: '10px', marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input 
+                type="checkbox" 
+                checked={workoutDone} 
+                onChange={() => setWorkoutDone(!workoutDone)} 
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '16px', fontWeight: 'bold', textDecoration: workoutDone ? 'line-through' : 'none', color: workoutDone ? '#888' : '#000' }}>
+                오늘의 필수 운동 완료하기 🔥
+              </span>
             </div>
           </div>
         )}
