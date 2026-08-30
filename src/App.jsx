@@ -4,7 +4,7 @@ import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged 
 } from 'firebase/auth';
 import { 
-  getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs 
+  getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, query, where, getDocs 
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -49,7 +49,7 @@ export default function App() {
   const [partnerRecords, setPartnerRecords] = useState([]);
   const [penalties, setPenalties] = useState([]);
 
-  // 월 캘린더 상태 (현재 연도/월)
+  // 월 캘린더 상태
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
 
   useEffect(() => {
@@ -91,14 +91,14 @@ export default function App() {
         const data = docSnap.data();
         const currentMyPoke = data[sanitizedMyEmailKey] || 0;
         if (currentMyPoke > pokeCount && pokeCount !== 0) {
-          setAlertMessage(`🚨 ${partnerName}님이 콕 찔렀어요! 오늘의 푸켓 미션을 확인해 보세요! 👉`);
+          setAlertMessage(`🚨 ${partnerName}님이 콕 찔렀어요! 오늘의 미션을 확인해 보세요! 👉`);
           setTimeout(() => setAlertMessage(''), 5000);
         }
         setPokeCount(currentMyPoke);
       } else {
         setDoc(docRef, { [sanitizedMyEmailKey]: 0, [sanitizedPartnerEmailKey]: 0 });
       }
-    }, (error) => console.error("Poke sync error:", error));
+    });
 
     return () => unsubscribe();
   }, [currentUser, sanitizedMyEmailKey, sanitizedPartnerEmailKey, pokeCount, partnerName]);
@@ -110,31 +110,7 @@ export default function App() {
         const myQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', currentUser.email));
         const mySnap = await getDocs(myQ);
         const myList = [];
-        mySnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          const targetD = new Date(data.targetDate);
-          const deadline = new Date(targetD.setDate(targetD.getDate() + 2));
-          deadline.setHours(0, 0, 0, 0);
-          
-          const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-          if (now >= deadline && !data.isLocked) {
-            const penaltyKey = `${currentUser.email}_${data.targetDate}_DIET`;
-            if (data.status === '미입력' || data.status === '실패') {
-              addDoc(collection(db, 'penalties'), {
-                coupleId: 'couple_01',
-                ownerEmail: currentUser.email,
-                partnerEmail: partnerEmail,
-                penaltyType: 'DIET',
-                referenceDate: data.targetDate,
-                amount: 10000,
-                reason: `식단 마감 초과/실패 (${data.targetDate})`,
-                uniquePenaltyKey: penaltyKey,
-                createdAt: new Date().toISOString()
-              }).catch(() => {});
-            }
-          }
-          myList.push({ id: docSnap.id, ...data });
-        });
+        mySnap.forEach((docSnap) => myList.push({ id: docSnap.id, ...docSnap.data() }));
         setMyRecords(myList);
 
         const partnerQ = query(collection(db, 'dietCheckins'), where('ownerEmail', '==', partnerEmail));
@@ -155,7 +131,7 @@ export default function App() {
     fetchRecords();
   }, [currentUser, activeTab, partnerEmail]);
 
-  // 이미지 파일 업로드 핸들러 (ImgBB 무료 API 활용)
+  // 이미지 파일 업로드 핸들러 (ImgBB 활용)
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -165,7 +141,6 @@ export default function App() {
     formData.append('image', file);
 
     try {
-      // 무료 익명 이미지 업로드 API 활용 (개인 키 없이도 안전하게 작동)
       const response = await fetch('https://api.imgbb.com/1/upload?key=d34465b6f3830c29a8264560d2cf3a61', {
         method: 'POST',
         body: formData,
@@ -173,7 +148,7 @@ export default function App() {
       const data = await response.json();
       if (data.success) {
         setDietPhotoUrl(data.data.url);
-        alert('이미지가 성공적으로 업로드되었습니다! 📸');
+        alert('인증 사진이 성공적으로 업로드되었습니다! 📸');
       } else {
         alert('이미지 업로드 실패: ' + (data.error?.message || '알 수 없는 오류'));
       }
@@ -245,7 +220,7 @@ export default function App() {
         isLocked: false,
         createdAt: new Date().toISOString()
       });
-      alert('운동 기록이 저장되었습니다! 💪 하루 최대 1회 인증이 반영됩니다.');
+      alert('운동 기록이 저장되었습니다! 💪');
       setWorkoutMemo('');
     } catch (err) {
       alert('저장 실패: ' + err.message);
@@ -267,7 +242,6 @@ export default function App() {
 
   const handleLogout = async () => { await signOut(auth); };
 
-  // 월 캘린더 날짜 계산 로직
   const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
 
@@ -287,9 +261,9 @@ export default function App() {
         <h2 className="text-center text-teal-700 text-2xl font-black mb-2">🏝️ 푸켓행 바디 챌린지</h2>
         <p className="text-center text-gray-500 text-sm mb-6">승현 & 상오니의 커플 식단 및 운동 미션 관리</p>
         <form onSubmit={handleAuth} className="flex flex-col gap-4">
-          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
-          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500" />
-          <button type="submit" className="p-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition">{isSignUp ? '가입하기' : '로그인하기'}</button>
+          <input type="email" placeholder="이메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500 text-sm" />
+          <input type="password" placeholder="비밀번호" value={password} onChange={(e) => setPassword(e.target.value)} required className="p-4 rounded-xl border border-teal-200 focus:outline-teal-500 text-sm" />
+          <button type="submit" className="p-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition text-sm">{isSignUp ? '가입하기' : '로그인하기'}</button>
         </form>
         <button onClick={() => setIsSignUp(!isSignUp)} className="bg-transparent border-none text-coral-500 mt-5 w-full font-bold cursor-pointer text-sm">
           {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
@@ -306,7 +280,7 @@ export default function App() {
   const firstDay = getFirstDayOfMonth(year, month);
 
   return (
-    <div className="max-w-md mx-auto pb-24 font-sans bg-[#fdfbf7] min-h-screen relative text-gray-800">
+    <div className="max-w-md mx-auto pb-24 font-sans bg-[#fdfbf7] min-h-screen relative text-gray-800 shadow-xl border-x border-gray-100">
       
       {alertMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-rose-500 text-white px-5 py-3 rounded-full shadow-xl z-50 font-bold text-sm animate-bounce">
@@ -315,7 +289,7 @@ export default function App() {
       )}
 
       <header className="p-4 bg-teal-600 text-white flex justify-between items-center shadow-md">
-        <h3 className="m-0 text-lg font-black">푸켓행 바디 챌린지 🏝️</h3>
+        <h3 className="m-0 text-base font-black">푸켓행 바디 챌린지 🏝️</h3>
         <span className="text-xs bg-white/20 px-3 py-1.5 rounded-full font-bold">{myName}님 환영해요!</span>
       </header>
 
@@ -324,21 +298,21 @@ export default function App() {
           <div>
             <div className="bg-gradient-to-br from-cyan-50 to-teal-50 p-6 rounded-2xl text-center mb-5 border border-teal-200 shadow-sm">
               <h2 className="m-0 mb-2 text-teal-800 text-2xl font-black">푸켓까지 D-{calculateDday()} 🏝️</h2>
-              <p className="m-0 text-teal-600 text-sm font-bold">야자수 아래의 우리를 상상하며 오늘도 한 걸음!</p>
+              <p className="m-0 text-teal-600 text-xs font-bold">야자수 아래의 우리를 상상하며 오늘도 파이팅!</p>
             </div>
 
-            <h3 className="text-gray-700 text-base font-bold mb-3">🏠 {partnerName}의 파트너 상태 카드</h3>
+            <h3 className="text-gray-700 text-sm font-bold mb-3">🏠 {partnerName}의 파트너 상태 카드</h3>
             <div className="bg-white p-5 rounded-2xl mb-4 border border-gray-100 shadow-sm">
-              <p className="m-0 mb-3 font-bold text-gray-700">❤️ {partnerName}님과 함께 달리는 중</p>
+              <p className="m-0 mb-3 font-bold text-gray-700 text-sm">❤️ {partnerName}님과 함께 달리는 중</p>
               <div className="flex gap-2">
-                <button onClick={handlePoke} className="flex-1 p-3 bg-rose-400 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-rose-500 transition text-sm">🥗 식단 콕 찌르기 👉</button>
-                <button onClick={handlePoke} className="flex-1 p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">💪 운동 콕 찌르기 👉</button>
+                <button onClick={handlePoke} className="flex-1 p-3 bg-rose-400 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-rose-500 transition text-xs">🥗 식단 콕 찌르기 👉</button>
+                <button onClick={handlePoke} className="flex-1 p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-xs">💪 운동 콕 찌르기 👉</button>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-              <p className="m-0 mb-2 font-bold text-gray-700">💰 이번 달 누적 벌금 현황</p>
-              <p className="m-0 text-rose-600 font-bold">내 누적 벌금: {totalPenalty.toLocaleString()}원</p>
+              <p className="m-0 mb-2 font-bold text-gray-700 text-sm">💰 이번 달 누적 벌금 현황</p>
+              <p className="m-0 text-rose-600 font-bold text-sm">내 누적 벌금: {totalPenalty.toLocaleString()}원</p>
             </div>
           </div>
         )}
@@ -346,30 +320,26 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-xl font-black m-0">📅 커플 월간 캘린더</h2>
+              <h2 className="text-lg font-black m-0">📅 커플 월간 캘린더</h2>
               <div className="flex gap-1">
                 <button onClick={() => changeMonth(-1)} className="px-3 py-1.5 bg-teal-600 text-white border-none rounded-lg text-xs font-bold cursor-pointer">◀ 이전달</button>
                 <button onClick={() => changeMonth(1)} className="px-3 py-1.5 bg-teal-600 text-white border-none rounded-lg text-xs font-bold cursor-pointer">다음달 ▶</button>
               </div>
             </div>
-            <p className="text-teal-700 font-bold text-sm mb-3 text-center">
+            <p className="text-teal-700 font-bold text-xs mb-3 text-center">
               {year}년 {month + 1}월
             </p>
 
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-              {/* 요일 헤더 */}
               <div className="grid grid-cols-7 text-center font-bold text-xs text-gray-400 mb-2">
                 <span className="text-rose-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
               </div>
 
-              {/* 달력 그리드 */}
               <div className="grid grid-cols-7 gap-1">
-                {/* 빈 칸 채우기 */}
                 {Array.from({ length: firstDay }).map((_, idx) => (
                   <div key={`empty-${idx}`} className="h-20 bg-gray-50/50 rounded-lg"></div>
                 ))}
 
-                {/* 날짜 반복 */}
                 {Array.from({ length: daysInMonth }).map((_, idx) => {
                   const dayNum = idx + 1;
                   const formattedMonth = String(month + 1).padStart(2, '0');
@@ -400,20 +370,20 @@ export default function App() {
 
         {activeTab === 'record' && (
           <div>
-            <h2 className="text-xl font-black mb-3">📝 식단 및 운동 기록 입력</h2>
+            <h2 className="text-lg font-black mb-3">📝 식단 및 운동 기록 입력</h2>
             <div className="mb-4">
-              <label className="text-xs font-bold text-gray-600">대상 날짜 선택 (오늘 또는 어제만 가능):</label>
-              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mt-1 text-sm bg-white" />
+              <label className="text-xs font-bold text-gray-600">대상 날짜 선택 (오늘 또는 어제):</label>
+              <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mt-1 text-xs bg-white" />
             </div>
 
             <form onSubmit={handleSaveDiet} className="bg-white p-4 rounded-2xl mb-4 border border-gray-100 shadow-sm">
-              <h4 className="m-0 mb-3 text-teal-700 font-bold text-sm">🥗 식단 기록</h4>
-              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 font-bold text-sm bg-white">
+              <h4 className="m-0 mb-3 text-teal-700 font-bold text-xs">🥗 식단 기록</h4>
+              <select value={dietStatus} onChange={(e) => setDietStatus(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 font-bold text-xs bg-white">
                 <option value="성공">성공 ✅</option>
                 <option value="실패">실패 ❌</option>
                 <option value="야자수 데이">야자수 데이 🌴 (치팅 예외일)</option>
               </select>
-              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 h-20 text-sm resize-none" />
+              <textarea placeholder="식단 메모 입력 (예: 닭가슴살 샐러드)" value={dietMemo} onChange={(e) => setDietMemo(e.target.value)} className="w-full p-3 rounded-xl border border-teal-200 mb-3 h-20 text-xs resize-none" />
               
               <div className="mb-3">
                 <label className="text-xs font-bold text-gray-600 mb-1 block">인증 사진 파일 업로드:</label>
@@ -422,30 +392,30 @@ export default function App() {
                 {dietPhotoUrl && <p className="text-xs text-emerald-600 mt-1 font-bold">✅ 사진 업로드 완료됨</p>}
               </div>
 
-              <button type="submit" className="w-full p-3 bg-teal-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-teal-700 transition text-sm">식단 저장하기</button>
+              <button type="submit" className="w-full p-3 bg-teal-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-teal-700 transition text-xs">식단 저장하기</button>
             </form>
 
             <form onSubmit={handleSaveWorkout} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="m-0 mb-3 text-emerald-700 font-bold text-sm">💪 운동 기록 (하루 최대 1회 인증)</h4>
-              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
-              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-sm" />
-              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} className="w-full p-3 rounded-xl border border-emerald-200 mb-3 h-20 text-sm resize-none" />
-              <button type="submit" className="w-full p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-sm">운동 완료 저장하기 🔥</button>
+              <h4 className="m-0 mb-3 text-emerald-700 font-bold text-xs">💪 운동 기록 (하루 최대 1회 인증)</h4>
+              <input type="text" value={workoutType} onChange={(e) => setWorkoutType(e.target.value)} placeholder="운동 종류" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-xs" />
+              <input type="text" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="운동 시간 (분)" className="w-full p-3 rounded-xl border border-emerald-200 mb-3 text-xs" />
+              <textarea placeholder="운동 메모" value={workoutMemo} onChange={(e) => setWorkoutMemo(e.target.value)} className="w-full p-3 rounded-xl border border-emerald-200 mb-3 h-20 text-xs resize-none" />
+              <button type="submit" className="w-full p-3 bg-emerald-600 text-white border-none rounded-xl font-bold cursor-pointer hover:bg-emerald-700 transition text-xs">운동 완료 저장하기 🔥</button>
             </form>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div>
-            <h2 className="text-xl font-black mb-3">⚙️ 설정 및 앱 관리</h2>
+            <h2 className="text-lg font-black mb-3">⚙️ 설정 및 앱 관리</h2>
             <p className="text-gray-600 text-xs mb-4">로그인 계정: <b>{currentUser.email}</b></p>
             
             <div className="my-5 p-5 bg-cyan-50 rounded-2xl border border-cyan-200">
-              <p className="m-0 mb-3 text-sm font-bold text-cyan-900">📱 스마트폰 홈 화면에 앱 설치하기 (PWA)</p>
-              <button onClick={handleInstallClick} className="p-3 bg-teal-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm">앱 설치하기 / 홈에 추가</button>
+              <p className="m-0 mb-3 text-xs font-bold text-cyan-900">📱 스마트폰 홈 화면에 앱 설치하기 (PWA)</p>
+              <button onClick={handleInstallClick} className="p-3 bg-teal-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-xs">앱 설치하기 / 홈에 추가</button>
             </div>
 
-            <button onClick={handleLogout} className="p-4 bg-rose-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-sm hover:bg-rose-700 transition">로그아웃 🚪</button>
+            <button onClick={handleLogout} className="p-4 bg-rose-600 text-white border-none rounded-xl cursor-pointer font-bold w-full text-xs hover:bg-rose-700 transition">로그아웃 🚪</button>
           </div>
         )}
       </main>
