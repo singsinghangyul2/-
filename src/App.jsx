@@ -328,7 +328,7 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0 }}>📅 커플 열대 달력</h2>
+              <h2 style={{ fontSize: '14px', fontWeight: '900', color: '#008B8B', margin: 0 }}>📅 캘린더</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button onClick={() => changeMonth(-1)} style={{ width: '30px', height: '30px', background: '#FFFFFF', border: '1px solid #B2DFDB', color: '#008B8B', borderRadius: '10px', fontSize: '12px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>◀</button>
                 <span style={{ padding: '6px 12px', background: '#E0F2F1', color: '#008B8B', borderRadius: '10px', fontSize: '12px', fontWeight: '900' }}>{year}.{String(month + 1).padStart(2, '0')}</span>
@@ -336,14 +336,14 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E0F2F1' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: '900', fontSize: '12px', color: '#A0AEC0', marginBottom: '12px' }}>
+            <div style={{ background: '#FFFFFF', padding: '14px 10px', borderRadius: '28px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E0F2F1' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', fontWeight: '900', fontSize: '11px', color: '#A0AEC0', marginBottom: '10px' }}>
                 <span style={{ color: '#E53E3E' }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: '#3182CE' }}>토</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                 {Array.from({ length: firstDay }).map((_, idx) => (
-                  <div key={`empty-${idx}`} style={{ height: '76px', background: '#F7FAFC', borderRadius: '14px' }}></div>
+                  <div key={`empty-${idx}`} style={{ minHeight: '92px', background: '#F7FAFC', borderRadius: '12px' }}></div>
                 ))}
 
                 {Array.from({ length: daysInMonth }).map((_, idx) => {
@@ -356,13 +356,13 @@ export default function App() {
                   const partnerRec = partnerRecords.find(r => r.targetDate === dateStr);
 
                   return (
-                    <div key={dateStr} style={{ height: '76px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '14px', padding: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '900', color: '#008B8B' }}>{dayNum}</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '9px', fontWeight: '900' }}>
-                        <div style={{ padding: '2px 4px', borderRadius: '6px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0' }}>
+                    <div key={dateStr} style={{ minHeight: '92px', background: '#F8FBFB', border: '1px solid #E0F2F1', borderRadius: '12px', padding: '4px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', boxSizing: 'border-box', overflow: 'hidden' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '900', color: '#008B8B', marginBottom: '4px', textAlign: 'center' }}>{dayNum}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '9px', fontWeight: '900' }}>
+                        <div style={{ padding: '2px 2px', borderRadius: '6px', textAlign: 'center', background: myRec ? (myRec.status === '성공' ? '#E0F2F1' : myRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: myRec ? (myRec.status === '성공' ? '#00695C' : myRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           나:{myRec ? (myRec.status === '성공' ? '✅' : myRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
-                        <div style={{ padding: '2px 4px', borderRadius: '6px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0' }}>
+                        <div style={{ padding: '2px 2px', borderRadius: '6px', textAlign: 'center', background: partnerRec ? (partnerRec.status === '성공' ? '#E0F2F1' : partnerRec.status === '야자수 데이' ? '#FFF8E1' : '#FFEBEE') : 'transparent', color: partnerRec ? (partnerRec.status === '성공' ? '#00695C' : partnerRec.status === '야자수 데이' ? '#F57F17' : '#C62828') : '#CBD5E0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {partnerName}:{partnerRec ? (partnerRec.status === '성공' ? '✅' : partnerRec.status === '야자수 데이' ? '🌴' : '❌') : '-'}
                         </div>
                       </div>
